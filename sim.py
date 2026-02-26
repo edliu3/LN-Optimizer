@@ -1,20 +1,8 @@
 # Simulation functions
 def calculate_single_hit(char, team_buffs):
-    if char.damage_type == "Max HP":
-        atk = 50000
-        damage_type_buff = 1
-    elif char.damage_type == "MATK":
-        atk = char.atk
-        damage_type_buff = team_buffs.get('MATK%', 1) * (char.temp_buffs.get('MATK%', 2) / 2)
-    else:  # ATK
-        atk = char.atk
-        damage_type_buff = team_buffs.get('ATK%', 1) * (char.temp_buffs.get('ATK%', 2) / 2)
-        
-    if char.name == "NH Nebris":
-        char.ratio_per_hit = 0.2 * team_buffs.get('buff_count')
+    atk, damage_type_buff, ratio = calculate_damage_stats(char, team_buffs)
     
-    total_single_hit = round(damage_type_buff * atk) * (char.crit_dmg + team_buffs.get('crit_dmg', 0) +
-            (char.temp_buffs.get('crit_dmg', 0)) / 2) * (team_buffs.get('overall', 1)) * char.ratio_per_hit
+    total_single_hit = round(damage_type_buff * atk) * calculate_crit_multiplier(char, team_buffs) * (team_buffs.get('overall', 1)) * ratio
     
     return floor(total_single_hit)
 
@@ -103,20 +91,6 @@ def calculate_team_buffs(team):
     return team_buffs
 
 
-def separate_buffers_attackers(team):
-    """Separate team into buffers and attackers."""
-    buffers = []
-    attackers = []
-    
-    for char in team:
-        if char.buffs:
-            buffers.append(char)
-        else:
-            attackers.append(char)
-    
-    return buffers, attackers
-
-
 def apply_exclusive_gear(team, gear_pool):
     """
     Pre-assign exclusive gear to their designated characters.
@@ -126,25 +100,15 @@ def apply_exclusive_gear(team, gear_pool):
         remaining_gear: List of non-exclusive gear still to be assigned
     """
     # Get unique base characters in team
-    attackers = [c for c in team if c.hits > 0]
-    base_characters = {}
-    for char in attackers:
-        base_name = char.get_base_character()
-        if base_name not in base_characters:
-            base_characters[base_name] = char
+    base_characters = get_unique_base_characters(team)
     
     # Organize gear by slot
-    gear_by_slot = {}
-    for gear in gear_pool:
-        if gear.slot not in gear_by_slot:
-            gear_by_slot[gear.slot] = []
-        gear_by_slot[gear.slot].append(gear)
+    gear_by_slot = organize_gear_by_slot(gear_pool)
     
     slots = list(gear_by_slot.keys())
     
     # Initialize empty assignment
-    initial_assignment = {char.get_base_character(): {slot: None for slot in slots} 
-                         for char in base_characters.values()}
+    initial_assignment = initialize_gear_assignment(base_characters, slots)
     
     # Track which gear is still available
     remaining_gear = []
@@ -183,17 +147,10 @@ def prefilter_gear_for_team(team, remaining_gear, top_k_per_slot,
     When provided, uncovered (char, slot) pairs are filled by actual damage
     delta rather than the stat_value_for_character heuristic.
     """
-    attackers = [c for c in team if c.hits > 0]
-    base_characters = {}
-    for char in attackers:
-        base_name = char.get_base_character()
-        if base_name not in base_characters:
-            base_characters[base_name] = char
+    base_characters = get_unique_base_characters(team)
     unique_bases = list(base_characters.values())
 
-    gear_by_slot = {}
-    for gear in remaining_gear:
-        gear_by_slot.setdefault(gear.slot, []).append(gear)
+    gear_by_slot = organize_gear_by_slot(remaining_gear)
 
     gear_to_keep = set()
 
@@ -201,7 +158,7 @@ def prefilter_gear_for_team(team, remaining_gear, top_k_per_slot,
     for slot, gears in gear_by_slot.items():
         for char in unique_bases:
             base_name = char.get_base_character()
-            eligible = [g for g in gears if g.can_equip_to(base_name)]
+            eligible = get_eligible_gear_for_character(gears, base_name)
             eligible.sort(key=lambda g: g.stat_value_for_character(char), reverse=True)
             for g in eligible[:top_k_per_slot]:
                 gear_to_keep.add(g)
@@ -211,7 +168,7 @@ def prefilter_gear_for_team(team, remaining_gear, top_k_per_slot,
         for char in unique_bases:
             base_name = char.get_base_character()
             for slot, gears in gear_by_slot.items():
-                eligible = [g for g in gears if g.can_equip_to(base_name)]
+                eligible = get_eligible_gear_for_character(gears, base_name)
 
                 # Only act if this char×slot has zero survivors in the filtered set
                 if not eligible or any(g in gear_to_keep for g in eligible):
@@ -263,7 +220,7 @@ def evaluate_team_with_gear(team, gear_assignments, force_best_rotation=False):
     
     # Calculate damage
     team_buffs = calculate_team_buffs(team_with_gear)
-    buffers, attackers = separate_buffers_attackers(team_with_gear)
+    buffers, attackers = get_attackers_and_buffers(team_with_gear)
     
     sequence = rotation_optimizer(team_buffs, attackers)
     
@@ -296,12 +253,7 @@ def beam_search_gear_optimization(team, gear_pool, beam_width=100, depth_limit=N
     attackers = [c for c in team if c.hits > 0]
     
     # Get unique base characters (so we don't assign gear multiple times to same base)
-    base_characters = {}
-    for char in attackers:
-        base_name = char.get_base_character()
-        if base_name not in base_characters:
-            base_characters[base_name] = char
-    
+    base_characters = get_unique_base_characters(team)
     unique_bases = list(base_characters.values())
 
     # Pre-assign exclusive gear and get remaining gear pool
@@ -316,13 +268,7 @@ def beam_search_gear_optimization(team, gear_pool, beam_width=100, depth_limit=N
     else:
         filtered_remaining = remaining_gear
     
-    # Organize remaining gear by slot
-    gear_by_slot = {}
-    for gear in remaining_gear:
-        if gear.slot not in gear_by_slot:
-            gear_by_slot[gear.slot] = []
-        gear_by_slot[gear.slot].append(gear)
-    
+    gear_by_slot = organize_gear_by_slot(filtered_remaining)
     slots = list(gear_by_slot.keys()) if gear_by_slot else []
     
     # Evaluate initial damage with exclusive gear only
@@ -425,23 +371,12 @@ def smart_greedy_gear_assignment(team, gear_pool, prefilter_top_k=5):
     else:
         filtered_remaining = remaining_gear
     
-    # Organize remaining gear by slot
-    gear_by_slot = {}
-    for gear in remaining_gear:
-        if gear.slot not in gear_by_slot:
-            gear_by_slot[gear.slot] = []
-        gear_by_slot[gear.slot].append(gear)
-    
+    gear_by_slot = organize_gear_by_slot(filtered_remaining)
     slots = list(gear_by_slot.keys())
     attackers = [c for c in team if c.hits > 0]
     
     # Get unique base characters
-    base_characters = {}
-    for char in attackers:
-        base_name = char.get_base_character()
-        if base_name not in base_characters:
-            base_characters[base_name] = char
-    
+    base_characters = get_unique_base_characters(team)
     unique_bases = list(base_characters.values())
     
     # Pre-evaluate gear value for each BASE character
@@ -453,8 +388,8 @@ def smart_greedy_gear_assignment(team, gear_pool, prefilter_top_k=5):
             gear_values[base_name][slot] = []
             if slot in gear_by_slot:
                 for gear in gear_by_slot[slot]:
-                    # Only consider gear that can be equipped to this character
-                    if gear.can_equip_to(base_name):
+                    eligible = get_eligible_gear_for_character([gear], base_name)
+                    if eligible:
                         value = gear.stat_value_for_character(base_char)
                         gear_values[base_name][slot].append((value, gear))
                 # Sort by value descending
@@ -519,12 +454,7 @@ def optimize_team_with_beam_search(roster, gear_pool, team_size=20,
     print(f"  Sample size (20% of combinations): {sample_size:,}")
     
     # Determine pre-filtering aggressiveness based on gear pool size
-    if len(gear_pool) < 30:
-        prefilter_k = 8
-    elif len(gear_pool) < 60:
-        prefilter_k = 5
-    else:
-        prefilter_k = 3
+    prefilter_k = determine_prefilter_k(len(gear_pool))
     
     # If there's a fixed core, adjust roster and team_size for sampling
     if fixed_core:
@@ -603,29 +533,13 @@ def _hits_data(sequence, team_buffs):
             1.0
         )
 
-        chain_mult = 1
-        if team_buffs.get("chain_count") or char.temp_buffs.get("chain_count") is not None:
-            chain_mult = 1 + team_buffs.get("chain_count", 0) + char.temp_buffs.get("chain_count", 0)
+        chain_mult = calculate_chain_multiplier(team_buffs, char.temp_buffs)
 
         for _ in range(char.hits):
             chain_bonus = current_chain * 0.1 + 1
 
-            if char.damage_type == "Max HP":
-                atk = 50000
-                dtb = 1.0
-            elif char.damage_type == "MATK":
-                atk = char.atk
-                dtb = team_buffs.get("MATK%", 1) * (char.temp_buffs.get("MATK%", 2) / 2)
-            else:
-                atk = char.atk
-                dtb = team_buffs.get("ATK%", 1) * (char.temp_buffs.get("ATK%", 2) / 2)
-
-            # NH Nebris special case
-            ratio = 0.2 * team_buffs.get("buff_count", 0) if char.name == "NH Nebris" else char.ratio_per_hit
-
-            crit_mult = (char.crit_dmg
-                         + team_buffs.get("crit_dmg", 0)
-                         + char.temp_buffs.get("crit_dmg", 0) / 2)
+            atk, dtb, ratio = calculate_damage_stats(char, team_buffs)
+            crit_mult = calculate_crit_multiplier(char, team_buffs)
 
             base_no_crit = floor(round(dtb * atk) * team_buffs.get("overall", 1) * ratio * chain_bonus)
             crit_d     = floor(round(dtb * atk) * crit_mult * team_buffs.get("overall", 1) * ratio * chain_bonus)

@@ -15,6 +15,7 @@ import gear.gear as gear
 import character.character as character
 import sim as sim
 import visualization as visualization
+from utils import determine_prefilter_k
 
 # Load data — path is relative to this script's location
 _DATA_FILE = Path.cwd() / "data" / "data.yaml"
@@ -42,16 +43,7 @@ if mode == "1":
     print(f"Team: {', '.join(c.name for c in fixed_team)}\n")
     
     print("Method: Beam Search with Gear Pre-filtering")
-    # Adjust prefilter_top_k based on gear pool size:
-    # - Small pool (< 30): Keep more options (top 8)
-    # - Medium pool (30-60): Balanced (top 5)
-    # - Large pool (60+): Aggressive filtering (top 3)
-    if len(gear_pool) < 30:
-        prefilter_k = 8
-    elif len(gear_pool) < 60:
-        prefilter_k = 5
-    else:
-        prefilter_k = 3
+    prefilter_k = determine_prefilter_k(len(gear_pool))
     
     best_assignment, best_damage = beam_search_gear_optimization(
         fixed_team, gear_pool, beam_width=200, prefilter_top_k=prefilter_k
