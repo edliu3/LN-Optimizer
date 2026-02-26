@@ -1,3 +1,8 @@
+from pathlib import Path
+import yaml
+from character import Character
+from gear import Gear
+
 def _load_data(yaml_path: str):
     """
     Load roster and gear_pool from a YAML file.
@@ -7,7 +12,7 @@ def _load_data(yaml_path: str):
     roster : list[Character]
     gear_pool : list[Gear]
     """
-    if not os.path.exists(yaml_path):
+    if not Path(yaml_path).exists():
         raise FileNotFoundError(
             f"Data file not found: '{yaml_path}'\n"
             "Make sure data.yaml is in the same folder as this script, "
@@ -90,5 +95,5 @@ def _load_data(yaml_path: str):
             label = entry.get("name") or entry.get("preset") or f"entry #{i}"
             raise ValueError(f"gear_pool entry '{label}': {exc}") from exc
 
-    print(f"✅ Loaded {len(roster_out)} characters and {len(gear_out)} gear pieces from '{yaml_path}'")
+    print(f"Loaded {len(roster_out)} characters and {len(gear_out)} gear pieces from '{yaml_path}'")
     return roster_out, gear_out

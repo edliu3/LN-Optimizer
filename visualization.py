@@ -1,3 +1,9 @@
+from sim import simulate_crit_distribution
+from utils import calculate_team_buffs
+import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
+import numpy as np
+
 def get_crit_summary(team, team_buffs):
     """Return per-character crit-rate contributions and the team total."""
     rows = []
@@ -134,5 +140,5 @@ def print_results(results):
         team_buffs = calculate_team_buffs(result['team'])
         print_crit_summary(result['team'], team_buffs)
         print(f"\n  Generating crit damage distribution for Team #{idx+1}...")
-        plot_crit_distribution(result['sequence'], _m2_team_buffs,
+        plot_crit_distribution(result['sequence'], team_buffs,
                                title_suffix=f"Team #{idx+1}")

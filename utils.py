@@ -42,6 +42,30 @@ def organize_gear_by_slot(gear_list):
         gear_by_slot[gear.slot].append(gear)
     return gear_by_slot
 
+def calculate_team_buffs(team):
+    """Extract and calculate team buffs from a team composition."""
+    team_buffs = {
+        "ATK%": 1,
+        "MATK%": 1,
+        "overall": 1,
+        "crit_dmg": 0,
+        "chain_count": 1,
+        "crit_rate": 0,
+        "buff_count": 0
+    }
+    
+    for char in team:
+        if char.buffs:
+            for buff_type, value in char.buffs:
+                team_buffs["buff_count"] += 1
+                if buff_type == "chain_count" or buff_type == "overall":
+                    team_buffs[buff_type] += value
+                elif team_buffs.get(buff_type, None) is None:
+                    continue
+                else:
+                    team_buffs[buff_type] += value / 2
+    
+    return team_buffs
 
 def calculate_damage_stats(char, team_buffs):
     """
