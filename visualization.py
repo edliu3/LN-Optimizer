@@ -4,6 +4,17 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
 
+def format_damage(damage):
+    """Format damage number with B/M/K suffixes."""
+    if damage >= 1e9:
+        return f"{damage/1e9:.2f}B"
+    elif damage >= 1e6:
+        return f"{damage/1e6:.1f}M"
+    elif damage >= 1e3:
+        return f"{damage/1e3:.0f}K"
+    else:
+        return f"{damage:.0f}"
+
 def get_crit_summary(team, team_buffs):
     """Return per-character crit-rate contributions and the team total."""
     rows = []
@@ -25,14 +36,14 @@ def print_crit_summary(team, team_buffs):
     for name, rate in rows:
         char = next(c for c in team if c.name == name)
         temp_cr = char.temp_buffs.get("crit_rate", 0) / 2
-        display = f"{rate*100:.1f}%  (+{temp_cr*100:.1f}% self)" if temp_cr > 0 else f"{rate*100:.1f}%"
+        display = f"{rate*100/2:.1f}%  (+{temp_cr*100/2:.1f}% self)" if temp_cr > 0 else f"{rate*100/2:.1f}%"
         if rate > 0 or temp_cr > 0:
             print(f"  {name:<30} {display:>22}")
     print(f"  {'':30} {'─'*22}")
     print(f"  {'TEAM TOTAL (capped at 100%)':<30} {team_total*100:>20.1f}%")
 
 
-def plot_crit_distribution(sequence, team_buffs, title_suffix=""):
+def plot_crit_distribution(sequence, team_buffs):
     """
     Simulate crit outcomes and display:
       • A histogram of total damage as % of full-crit damage
@@ -54,16 +65,18 @@ def plot_crit_distribution(sequence, team_buffs, title_suffix=""):
     colours    = ["#e74c3c", "#e67e22", "#2ecc71"]
     for thresh, col in zip(thresholds, colours):
         prob = (pct >= thresh).mean() * 100
+        dmg_at_thresh = full_dmg * (thresh / 100)
+        dmg_str = format_damage(dmg_at_thresh)
         ax.axvline(thresh, color=col, linewidth=1.8, linestyle="--")
         ax.text(thresh + 0.3, ax.get_ylim()[1] * 0.97,
-                f"≥{thresh}%\n{prob:.1f}% chance",
+                f"≥{thresh}%\n{prob:.1f}% chance\n{dmg_str} dmg",
                 color=col, fontsize=8.5, va="top", fontweight="bold")
 
     ax.set_xlabel("Damage as % of Full Crit Damage", fontsize=11)
     ax.set_ylabel("Probability Density", fontsize=11)
     ax.set_title(
         f"Crit Damage Distribution  –  Team Crit Rate: {crit_rate*100:.1f}%"
-        + (f"  |  {title_suffix}" if title_suffix else ""),
+        + (f"  | Max: {format_damage(full_dmg)}"),
         fontsize=12, fontweight="bold"
     )
     ax.xaxis.set_major_formatter(mticker.PercentFormatter())
@@ -84,6 +97,13 @@ def plot_crit_distribution(sequence, team_buffs, title_suffix=""):
           f"P(≥90%): {(pct>=90).mean()*100:.1f}%  |  "
           f"P(≥80%): {(pct>=80).mean()*100:.1f}%  |  "
           f"P(≥70%): {(pct>=70).mean()*100:.1f}%")
+    
+    # Calculate and display full damage context for percentiles
+    p90_dmg = full_dmg * 0.90
+    p80_dmg = full_dmg * 0.80  
+    p70_dmg = full_dmg * 0.70
+    print(f"  [Full damage context]  "
+          f"Full: {full_dmg:,.0f}  |  P90: {p90_dmg:,.0f}  |  P80: {p80_dmg:,.0f}  |  P70: {p70_dmg:,.0f}")
 
 
 def print_results(results):
@@ -139,6 +159,5 @@ def print_results(results):
         # ── Crit rate summary + probability distribution ──────────────────────
         team_buffs = calculate_team_buffs(result['team'])
         print_crit_summary(result['team'], team_buffs)
-        print(f"\n  Generating crit damage distribution for Team #{idx+1}...")
-        plot_crit_distribution(result['sequence'], team_buffs,
-                               title_suffix=f"Team #{idx+1}")
+        print(f"\n  Generating crit damage distribution...")
+        plot_crit_distribution(result['sequence'], team_buffs)
