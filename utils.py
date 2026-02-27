@@ -121,11 +121,11 @@ def determine_prefilter_k(gear_pool_size):
         Integer prefilter_k value
     """
     if gear_pool_size < 30:
-        return 8
+        return 13
     elif gear_pool_size < 60:
-        return 5
+        return 8
     else:
-        return 3
+        return 5
 
 
 def initialize_gear_assignment(base_characters, slots):
