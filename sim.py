@@ -125,11 +125,11 @@ def calculate_actual_damage(sequence, current_team_buffs):
     
     return total_damage, current_chain
 
-def evaluate_team_with_gear(team, gear_assignments, force_best_rotation=False):
+def evaluate_team_with_gear(team, gear_assignments):
     """Assigns gear to characters and calculates the total damage."""
     # Check cache first
     assignment_hash = get_assignment_hash(gear_assignments)
-    cache_key = (assignment_hash, force_best_rotation)
+    cache_key = assignment_hash
     
     if cache_key in _damage_cache:
         return _damage_cache[cache_key]
@@ -465,65 +465,6 @@ def adaptive_gear_assignment(team, gear_pool, prefilter_top_k=5, max_iterations=
     
     return best_assignment, best_damage
 
-def random_restart_gear_assignment(team, gear_pool, prefilter_top_k=5, restarts=10):
-    """
-    Random restart strategy that tries completely different gear assignments.
-    Useful for finding diverse solutions that might be far from greedy optimum.
-    """
-    best_assignment, best_damage = greedy_gear_assignment(team, gear_pool, prefilter_top_k)
-    
-    for restart in range(restarts):
-        # Create completely random assignment
-        assignment, remaining_gear = apply_exclusive_gear(team, gear_pool)
-        
-        # Precompute gear eligibility
-        base_characters = get_unique_base_characters(team)
-        eligibility = precompute_gear_eligibility(remaining_gear, base_characters)
-        
-        if prefilter_top_k > 0:
-            filtered_remaining = prefilter_gear_for_team(
-                team, remaining_gear, eligibility,
-                top_k_per_slot=prefilter_top_k,
-                baseline_assignment=assignment,
-            )
-        else:
-            filtered_remaining = remaining_gear
-        
-        gear_by_slot = organize_gear_by_slot(filtered_remaining)
-        slots = list(gear_by_slot.keys())
-        unique_bases = list(base_characters.values())
-        
-        # Completely random assignment (no greedy bias)
-        used_gear = set()
-        
-        # Randomize slot order for diversity
-        random.shuffle(slots)
-        
-        for slot in slots:
-            # Get all candidates for this slot
-            candidates = []
-            for base_char in unique_bases:
-                base_name = base_char.get_base_character()
-                if slot in gear_by_slot and assignment[base_name][slot] is None:
-                    for gear in gear_by_slot[slot]:
-                        if gear not in used_gear and base_name in eligibility.get(gear.name, set()):
-                            candidates.append((base_name, gear))
-            
-            # Randomly assign gear (no sorting by value)
-            if candidates:
-                random.shuffle(candidates)
-                base_name, gear = candidates[0]
-                assignment[base_name][slot] = gear
-                used_gear.add(gear)
-        
-        # Evaluate this random assignment
-        damage, _, _ = evaluate_team_with_gear(team, assignment)
-        
-        if damage > best_damage:
-            best_assignment = assignment
-            best_damage = damage
-    
-    return best_assignment, best_damage
 
 def stochastic_gear_assignment(team, gear_pool, prefilter_top_k=5, attempts=20):
     """
@@ -587,48 +528,6 @@ def stochastic_gear_assignment(team, gear_pool, prefilter_top_k=5, attempts=20):
             best_damage = damage
     
     return best_assignment, best_damage
-
-def hill_climbing_gear_assignment(team, gear_pool, prefilter_top_k=5, 
-                                   max_iterations=100, restarts=5,
-                                   neighborhood_size=10):
-    """
-    Hill climbing with random restarts for gear assignment.
-    
-    Starts with greedy or random assignment, then iteratively improves
-    by swapping gear pieces until local optimum is reached.
-    
-    Parameters:
-    - team: List of characters in the team
-    - gear_pool: Available gear pool
-    - prefilter_top_k: Gear prefiltering parameter
-    - max_iterations: Max iterations per hill climbing run
-    - restarts: Number of random restarts
-    - neighborhood_size: Number of neighbors to explore per iteration
-    
-    Returns:
-    - best_assignment: Dict mapping base character -> slot -> gear
-    - best_damage: Best damage achieved
-    """
-    # Precompute gear eligibility
-    base_characters = get_unique_base_characters(team)
-    eligibility = precompute_gear_eligibility(gear_pool, base_characters)
-    
-    def get_all_assignable_gear(assignment, used_gear):
-        """Get list of all gear that can be assigned (not used, can equip to someone)."""
-        assignable = []
-        for gear in gear_pool:
-            if gear in used_gear:
-                continue
-            if gear.exclusive_for is not None:
-                continue  # Skip exclusive gear (already assigned)
-            # Check if this gear can equip to any character in team
-            eligible_bases = eligibility.get(gear.name, set())
-            if eligible_bases:
-                for base_name in eligible_bases:
-                    if assignment.get(base_name, {}).get(gear.slot) is None:
-                        assignable.append((base_name, gear.slot, gear))
-                        break
-        return assignable
     
     def generate_neighbor(assignment, used_gear):
         """Generate a neighbor by swapping gear pieces."""
@@ -1216,20 +1115,6 @@ def simulated_annealing_team_search(roster, gear_pool, team_size=20,
             print(f"    Early termination: No improvement for {total_iterations_without_improvement} temperature levels")
             break
         
-        # If stuck for longer, try random restart gear assignment (less frequent)
-        if stagnation_counter > 3:
-            print(f"    Stagnation detected, trying random restart gear assignment...")
-            restart_assignment, restart_damage = random_restart_gear_assignment(
-                current_team, gear_pool, prefilter_top_k=prefilter_k, restarts=2
-            )
-            if restart_damage > current_damage:
-                current_assignment = restart_assignment
-                current_damage = restart_damage
-                if restart_damage > best_damage:
-                    best_team = current_team.copy()
-                    best_damage = restart_damage
-            stagnation_counter = 0
-        
         for _ in range(iterations_per_temp):
             iteration += 1
             
@@ -1330,7 +1215,7 @@ def optimize_gear_for_team(team, gear_pool, method="greedy", preset="balanced",
     Unified gear optimization interface.
     
     Parameters:
-    - method: "greedy", "adaptive_sa", "hill_climbing", "sa", "tabu"
+    - method: "greedy", "adaptive_sa", "sa", "tabu"
     - preset: "fast", "balanced", "thorough" - determines parameter defaults
     - prefilter_top_k: Gear prefiltering parameter
     - kwargs: Override specific parameters from preset
@@ -1348,8 +1233,6 @@ def optimize_gear_for_team(team, gear_pool, method="greedy", preset="balanced",
         return greedy_gear_assignment(team, gear_pool, prefilter_top_k)
     elif method == "adaptive_sa":
         return adaptive_gear_assignment(team, gear_pool, prefilter_top_k, **params)
-    elif method == "hill_climbing":
-        return hill_climbing_gear_assignment(team, gear_pool, prefilter_top_k, **params)
     elif method == "sa":
         return simulated_annealing_gear_assignment(team, gear_pool, prefilter_top_k, **params)
     elif method == "tabu":
@@ -1375,7 +1258,7 @@ def optimize_team_with_beam_search(roster, gear_pool, team_size=20,
     sa_cooling_rate: Temperature decay rate for simulated annealing
     sa_min_temp: Minimum temperature for simulated annealing
     bs_iteration_multiplier: Multiplier for beam search iterations (higher = more thorough search)
-    gear_method: Gear optimization method ("greedy", "adaptive_sa", "hill_climbing", "sa", "tabu")
+    gear_method: Gear optimization method ("greedy", "adaptive_sa", "sa", "tabu")
     gear_preset: Parameter preset for gear method ("fast", "balanced", "thorough")
     """
     # Calculate optimal sample_size based on total combinations
@@ -1490,7 +1373,7 @@ def optimize_team_with_beam_search(roster, gear_pool, team_size=20,
     
     # Get final sequence with BEST rotation
     print(f"  Optimizing final rotation...")
-    damage, chain, sequence = evaluate_team_with_gear(best_team, best_assignment, force_best_rotation=True)
+    damage, chain, sequence = evaluate_team_with_gear(best_team, best_assignment)
     
     final_results = [{
         'team': best_team,
