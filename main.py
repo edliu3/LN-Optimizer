@@ -68,7 +68,6 @@ elif mode == "2":
         roster, gear_pool,
         team_size=20,
         beam_width=200,
-        num_teams_to_optimize=3,
         fixed_core=fixed_core
     )
     

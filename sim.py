@@ -336,6 +336,233 @@ def prefilter_gear_for_team(team, remaining_gear, eligibility, top_k_per_slot,
 
     return list(gear_to_keep)
 
+def adaptive_gear_assignment(team, gear_pool, prefilter_top_k=5, max_iterations=50, 
+                           temperature=100, cooling_rate=0.95):
+    """
+    Adaptive gear assignment that can escape local maxima using simulated annealing.
+    Starts with greedy assignment then applies perturbations to find better solutions.
+    """
+    # Start with greedy assignment as baseline
+    best_assignment, best_damage = greedy_gear_assignment(team, gear_pool, prefilter_top_k)
+    
+    # If team is small or gear pool is limited, greedy might be optimal
+    if len(team) <= 5 or len(gear_pool) <= len(team) * 3:
+        return best_assignment, best_damage
+    
+    current_assignment = deepcopy(best_assignment)
+    current_damage = best_damage
+    
+    temp = temperature
+    stagnation_counter = 0
+    
+    for iteration in range(max_iterations):
+        # Create perturbed assignment
+        perturbed_assignment = deepcopy(current_assignment)
+        
+        # More aggressive perturbations when stuck
+        if stagnation_counter > 5:
+            num_perturbations = min(5, max(2, int(temp / 25)))
+        else:
+            num_perturbations = min(3, max(1, int(temp / 50)))
+        
+        for _ in range(num_perturbations):
+            # Find a character with assigned gear
+            base_names = [name for name in perturbed_assignment.keys() 
+                         if any(gear is not None for gear in perturbed_assignment[name].values())]
+            
+            if not base_names:
+                break
+                
+            base_name = random.choice(base_names)
+            char_slots = [slot for slot, gear in perturbed_assignment[base_name].items() 
+                         if gear is not None]
+            
+            if not char_slots:
+                continue
+                
+            slot_to_perturb = random.choice(char_slots)
+            current_gear = perturbed_assignment[base_name][slot_to_perturb]
+            
+            # Find alternative gear for this slot
+            base_character = next(c for c in team if c.get_base_character() == base_name)
+            eligible_gear = [g for g in gear_pool 
+                           if g.slot == slot_to_perturb and 
+                              g != current_gear and
+                              g.can_equip_to(base_name)]
+            
+            if eligible_gear:
+                # More aggressive exploration when stuck
+                if stagnation_counter > 5:
+                    # Higher chance of random choice when stuck
+                    if random.random() < 0.7:
+                        new_gear = random.choice(eligible_gear)
+                    else:
+                        new_gear = max(eligible_gear, key=lambda g: g.stat_value_for_character(base_character))
+                else:
+                    # Normal exploration vs exploitation
+                    if random.random() < temp / temperature:
+                        new_gear = random.choice(eligible_gear)
+                    else:
+                        new_gear = max(eligible_gear, key=lambda g: g.stat_value_for_character(base_character))
+                
+                perturbed_assignment[base_name][slot_to_perturb] = new_gear
+        
+        # Evaluate perturbed assignment
+        perturbed_damage, _, _ = evaluate_team_with_gear(team, perturbed_assignment)
+        
+        # Calculate acceptance probability
+        damage_diff = perturbed_damage - current_damage
+        
+        if damage_diff > 0:
+            # Always accept better solutions
+            current_assignment = perturbed_assignment
+            current_damage = perturbed_damage
+            stagnation_counter = 0
+            
+            if perturbed_damage > best_damage:
+                best_assignment = perturbed_assignment
+                best_damage = perturbed_damage
+                stagnation_counter = 0
+        else:
+            stagnation_counter += 1
+            # Accept worse solutions with probability based on temperature
+            if temp > 0 and random.random() < np.exp(damage_diff / temp):
+                current_assignment = perturbed_assignment
+                current_damage = perturbed_damage
+                stagnation_counter = 0
+        
+        # Cool down
+        temp *= cooling_rate
+        
+        # Early termination if no improvement for many iterations
+        if stagnation_counter > 15:
+            break
+    
+    return best_assignment, best_damage
+
+def random_restart_gear_assignment(team, gear_pool, prefilter_top_k=5, restarts=10):
+    """
+    Random restart strategy that tries completely different gear assignments.
+    Useful for finding diverse solutions that might be far from greedy optimum.
+    """
+    best_assignment, best_damage = greedy_gear_assignment(team, gear_pool, prefilter_top_k)
+    
+    for restart in range(restarts):
+        # Create completely random assignment
+        assignment, remaining_gear = apply_exclusive_gear(team, gear_pool)
+        
+        # Precompute gear eligibility
+        base_characters = get_unique_base_characters(team)
+        eligibility = precompute_gear_eligibility(remaining_gear, base_characters)
+        
+        if prefilter_top_k > 0:
+            filtered_remaining = prefilter_gear_for_team(
+                team, remaining_gear, eligibility,
+                top_k_per_slot=prefilter_top_k,
+                baseline_assignment=assignment,
+            )
+        else:
+            filtered_remaining = remaining_gear
+        
+        gear_by_slot = organize_gear_by_slot(filtered_remaining)
+        slots = list(gear_by_slot.keys())
+        unique_bases = list(base_characters.values())
+        
+        # Completely random assignment (no greedy bias)
+        used_gear = set()
+        
+        # Randomize slot order for diversity
+        random.shuffle(slots)
+        
+        for slot in slots:
+            # Get all candidates for this slot
+            candidates = []
+            for base_char in unique_bases:
+                base_name = base_char.get_base_character()
+                if slot in gear_by_slot and assignment[base_name][slot] is None:
+                    for gear in gear_by_slot[slot]:
+                        if gear not in used_gear and base_name in eligibility.get(gear.name, set()):
+                            candidates.append((base_name, gear))
+            
+            # Randomly assign gear (no sorting by value)
+            if candidates:
+                random.shuffle(candidates)
+                base_name, gear = candidates[0]
+                assignment[base_name][slot] = gear
+                used_gear.add(gear)
+        
+        # Evaluate this random assignment
+        damage, _, _ = evaluate_team_with_gear(team, assignment)
+        
+        if damage > best_damage:
+            best_assignment = assignment
+            best_damage = damage
+    
+    return best_assignment, best_damage
+
+def stochastic_gear_assignment(team, gear_pool, prefilter_top_k=5, attempts=20):
+    """
+    Stochastic gear assignment that tries multiple random assignments and keeps the best.
+    Useful for escaping local maxima when greedy gets stuck.
+    """
+    best_assignment, best_damage = greedy_gear_assignment(team, gear_pool, prefilter_top_k)
+    
+    # Try multiple stochastic attempts
+    for attempt in range(attempts):
+        # Create random assignment with some greedy guidance
+        assignment, remaining_gear = apply_exclusive_gear(team, gear_pool)
+        
+        # Precompute gear eligibility
+        base_characters = get_unique_base_characters(team)
+        eligibility = precompute_gear_eligibility(remaining_gear, base_characters)
+        
+        if prefilter_top_k > 0:
+            filtered_remaining = prefilter_gear_for_team(
+                team, remaining_gear, eligibility,
+                top_k_per_slot=prefilter_top_k,
+                baseline_assignment=assignment,
+            )
+        else:
+            filtered_remaining = remaining_gear
+        
+        gear_by_slot = organize_gear_by_slot(filtered_remaining)
+        slots = list(gear_by_slot.keys())
+        unique_bases = list(base_characters.values())
+        
+        # Random assignment with bias towards high-value gear
+        used_gear = set()
+        
+        for slot in slots:
+            # Get candidates for this slot
+            candidates = []
+            for base_char in unique_bases:
+                base_name = base_char.get_base_character()
+                if slot in gear_by_slot and assignment[base_name][slot] is None:
+                    for gear in gear_by_slot[slot]:
+                        if gear not in used_gear and base_name in eligibility.get(gear.name, set()):
+                            # Add randomness to selection
+                            value = gear.stat_value_for_character(base_char) * random.uniform(0.7, 1.3)
+                            candidates.append((value, base_name, gear))
+            
+            # Sort and assign, but with some randomness
+            candidates.sort(key=lambda x: x[0], reverse=True)
+            
+            # Take top few candidates and randomly choose one
+            if candidates:
+                top_candidates = candidates[:min(3, len(candidates))]
+                value, base_name, gear = random.choice(top_candidates)
+                assignment[base_name][slot] = gear
+                used_gear.add(gear)
+        
+        # Evaluate this assignment
+        damage, _, _ = evaluate_team_with_gear(team, assignment)
+        
+        if damage > best_damage:
+            best_assignment = assignment
+            best_damage = damage
+    
+    return best_assignment, best_damage
+
 def greedy_gear_assignment(team, gear_pool, prefilter_top_k=5):
     """
     Assigns gear to a team using a greedy algorithm based on the
@@ -405,17 +632,182 @@ def greedy_gear_assignment(team, gear_pool, prefilter_top_k=5):
     
     return assignment, damage
 
+def simulated_annealing_team_search(roster, gear_pool, team_size=20, 
+                                   initial_temp=2500, cooling_rate=0.96, min_temp=1000,
+                                   iterations_per_temp=100, fixed_core=None):
+    """
+    Simulated annealing for team optimization.
+    
+    Parameters:
+    - roster: Available characters to choose from
+    - gear_pool: Available gear for evaluation
+    - team_size: Size of the team to build
+    - initial_temp: Starting temperature (default: 2500)
+    - cooling_rate: Temperature decay rate (default: 0.96)
+    - min_temp: Minimum temperature before stopping (default: 1000)
+    - iterations_per_temp: Number of iterations at each temperature level
+    - fixed_core: List of characters that are auto-includes
+    
+    Returns:
+    - List of (damage, team) tuples sorted by damage
+    """
+    print(f"  Simulated annealing (temp={initial_temp}->{min_temp}, rate={cooling_rate})...")
+    
+    prefilter_k = determine_prefilter_k(len(gear_pool))
+    
+    if fixed_core:
+        available_roster = [c for c in roster if c not in fixed_core]
+        slots_to_fill = team_size - len(fixed_core)
+    else:
+        available_roster = roster
+        slots_to_fill = team_size
+    
+    # Create initial random team
+    def create_random_team():
+        remaining_chars = random.sample(available_roster, slots_to_fill)
+        if fixed_core:
+            return fixed_core + remaining_chars
+        else:
+            return remaining_chars
+    
+    current_team = create_random_team()
+    current_assignment, current_damage = greedy_gear_assignment(
+        current_team, gear_pool, prefilter_top_k=prefilter_k
+    )
+    
+    best_team = current_team.copy()
+    best_damage = current_damage
+    
+    temperature = initial_temp
+    iteration = 0
+    stagnation_counter = 0
+    last_best_damage = 0
+    total_iterations_without_improvement = 0
+    results = [(current_damage, current_team.copy())]
+    
+    while temperature > min_temp:
+        print(f"    Temperature {temperature:.1f}: Best = {best_damage:,.0f}")
+        
+        # Check for stagnation and trigger random restart
+        if best_damage == last_best_damage:
+            stagnation_counter += 1
+            total_iterations_without_improvement += 1
+        else:
+            stagnation_counter = 0
+            last_best_damage = best_damage
+            total_iterations_without_improvement = 0
+        
+        # Early termination if no improvement for many consecutive temperature levels
+        if total_iterations_without_improvement > 12:
+            print(f"    Early termination: No improvement for {total_iterations_without_improvement} temperature levels")
+            break
+        
+        # If stuck for longer, try random restart gear assignment (less frequent)
+        if stagnation_counter > 3:
+            print(f"    Stagnation detected, trying random restart gear assignment...")
+            restart_assignment, restart_damage = random_restart_gear_assignment(
+                current_team, gear_pool, prefilter_top_k=prefilter_k, restarts=2
+            )
+            if restart_damage > current_damage:
+                current_assignment = restart_assignment
+                current_damage = restart_damage
+                if restart_damage > best_damage:
+                    best_team = current_team.copy()
+                    best_damage = restart_damage
+            stagnation_counter = 0
+        
+        for _ in range(iterations_per_temp):
+            iteration += 1
+            
+            # Generate neighbor by swapping one character
+            neighbor_team = current_team.copy()
+            
+            if fixed_core:
+                # Find a non-core character to replace
+                core_indices = [i for i, c in enumerate(neighbor_team) if c in fixed_core]
+                non_core_indices = [i for i, c in enumerate(neighbor_team) if c not in fixed_core]
+                
+                if non_core_indices:
+                    replace_idx = random.choice(non_core_indices)
+                    char_to_replace = neighbor_team[replace_idx]
+                    
+                    # Find a character not in current team
+                    available_for_swap = [c for c in available_roster if c not in neighbor_team]
+                    if available_for_swap:
+                        new_char = random.choice(available_for_swap)
+                        neighbor_team[replace_idx] = new_char
+            else:
+                # Random swap
+                replace_idx = random.randint(0, len(neighbor_team) - 1)
+                char_to_replace = neighbor_team[replace_idx]
+                
+                available_for_swap = [c for c in available_roster if c not in neighbor_team]
+                if available_for_swap:
+                    new_char = random.choice(available_for_swap)
+                    neighbor_team[replace_idx] = new_char
+            
+            # Simplified neighbor evaluation - mostly greedy with more aggressive adaptive
+            # Use adaptive assignment when temperature is high OR we're stuck
+            if temperature > initial_temp * 0.4 or stagnation_counter > 2:
+                neighbor_assignment, neighbor_damage = adaptive_gear_assignment(
+                    neighbor_team, gear_pool, prefilter_top_k=prefilter_k,
+                    max_iterations=5, temperature=temperature/20
+                )
+            else:
+                # Use greedy for most evaluations (faster and more consistent)
+                neighbor_assignment, neighbor_damage = greedy_gear_assignment(
+                    neighbor_team, gear_pool, prefilter_top_k=prefilter_k
+                )
+            
+            # Calculate acceptance probability
+            damage_diff = neighbor_damage - current_damage
+            
+            if damage_diff > 0:
+                # Always accept better solutions
+                current_team = neighbor_team
+                current_damage = neighbor_damage
+                current_assignment = neighbor_assignment
+                
+                if neighbor_damage > best_damage:
+                    best_team = neighbor_team.copy()
+                    best_damage = neighbor_damage
+            else:
+                # Accept worse solutions with probability based on temperature
+                if temperature > 0:
+                    acceptance_prob = np.exp(damage_diff / temperature)
+                    if random.random() < acceptance_prob:
+                        current_team = neighbor_team
+                        current_damage = neighbor_damage
+                        current_assignment = neighbor_assignment
+            
+            # Store result periodically
+            if iteration % 50 == 0:
+                results.append((current_damage, current_team.copy()))
+        
+        # Cool down
+        temperature *= cooling_rate
+    
+    print(f"    Final best damage: {best_damage:,.0f}")
+    
+    # Sort results by damage and return
+    results.sort(reverse=True, key=lambda x: x[0])
+    return results
+
 def optimize_team_with_beam_search(roster, gear_pool, team_size=20, 
-                                            beam_width=200, num_teams_to_optimize=5,
-                                            fixed_core=None):
+                                            beam_width=200,
+                                            fixed_core=None, use_simulated_annealing=True,
+                                            sa_initial_temp=2500, sa_cooling_rate=0.96, sa_min_temp=1000):
     """
     Two-step optimization process:
-    1. Randomly sample teams and use greedy gear assignment to rank them
-    2. Get top teams (num_teams_to_optimize) and assign gear using beam search
+    1. Find the best promising team using either random sampling or simulated annealing
+    2. Assign gear using beam search for that single best team
 
-    num_teams_to_optimize: Number of top teams to keep for beam search
-    beam_width: Number of teams to keep in beam search
+    beam_width: Number of gear assignments to keep in beam search
     fixed_core: List of characters that are auto-includes (usually OM Liberta, Bride Refi, Shrine Granadair)
+    use_simulated_annealing: If True, use simulated annealing instead of random sampling
+    sa_initial_temp: Starting temperature for simulated annealing
+    sa_cooling_rate: Temperature decay rate for simulated annealing
+    sa_min_temp: Minimum temperature for simulated annealing
     """
     # Calculate optimal sample_size based on total combinations
     if fixed_core:
@@ -425,74 +817,87 @@ def optimize_team_with_beam_search(roster, gear_pool, team_size=20,
     else:
         total_combinations = comb(len(roster), team_size)
     
-    sample_size = max(100, min(int(total_combinations * 0.2), 100000))
-    
     print(f"  Total possible teams: {total_combinations:,}")
-    print(f"  Sample size (20% of combinations): {sample_size:,}")
+    
+    # Calculate sample size for random sampling fallback
+    sample_size = max(100, min(int(total_combinations * 0.2), 100000))
     
     # Determine pre-filtering aggressiveness based on gear pool size
     prefilter_k = determine_prefilter_k(len(gear_pool))
     
-    # If there's a fixed core, adjust roster and team_size for sampling
-    if fixed_core:
-        available_roster = [c for c in roster if c not in fixed_core]
-        slots_to_fill = team_size - len(fixed_core)
-        print(f"  Fixed core: {', '.join(c.name for c in fixed_core)}")
-        print(f"  Filling {slots_to_fill} remaining slots from {len(available_roster)} characters")
-    else:
-        available_roster = roster
-        slots_to_fill = team_size
-    
     print(" Stage 1: Finding promising teams...")
     
-    # Sample random teams
-    quick_results = []
-    
-    for i in range(sample_size):
-        # Sample remaining slots
-        remaining_chars = random.sample(available_roster, slots_to_fill)
+    if use_simulated_annealing:
+        print(f"  Using simulated annealing (temp: {sa_initial_temp}, cooling: {sa_cooling_rate}, min: {sa_min_temp})")
         
-        # Combine with fixed core if present
-        if fixed_core:
-            team = fixed_core + remaining_chars
-        else:
-            team = remaining_chars
-        
-        assignment, damage = greedy_gear_assignment(team, gear_pool, prefilter_top_k=prefilter_k)
-        quick_results.append((damage, team))
-        
-        if (i + 1) % 500 == 0:
-            print(f"  Sampled {i + 1}/{sample_size} teams...")
-    
-    # Sort and keep top teams
-    quick_results.sort(reverse=True, key=lambda x: x[0])
-    top_teams = [team for _, team in quick_results[:num_teams_to_optimize]]
-    
-    print(f"\n  Stage 2: Beam search optimization for top {num_teams_to_optimize} teams...\n")
-    
-    final_results = []
-    
-    for idx, team in enumerate(top_teams):
-        print(f"Team {idx + 1}/{num_teams_to_optimize}:")
-        
-        # Use beam search to find best gear assignment for each team
-        best_assignment, best_damage = beam_search_gear_optimization(
-            team, gear_pool, beam_width=beam_width, prefilter_top_k=prefilter_k
+        # Use simulated annealing to find promising teams
+        quick_results = simulated_annealing_team_search(
+            roster, gear_pool, team_size, 
+            sa_initial_temp, sa_cooling_rate, sa_min_temp, 
+            iterations_per_temp=50, fixed_core=fixed_core
         )
+    else:
+        print(f"  Sample size (20% of combinations): {sample_size:,}")
         
-        # Get final sequence with BEST rotation
-        print(f"  Optimizing final rotation...")
-        damage, chain, sequence = evaluate_team_with_gear(team, best_assignment, force_best_rotation=True)
+        # Traditional random sampling
+        # If there's a fixed core, adjust roster and team_size for sampling
+        if fixed_core:
+            available_roster = [c for c in roster if c not in fixed_core]
+            slots_to_fill = team_size - len(fixed_core)
+            print(f"  Fixed core: {', '.join(c.name for c in fixed_core)}")
+            print(f"  Filling {slots_to_fill} remaining slots from {len(available_roster)} characters")
+        else:
+            available_roster = roster
+            slots_to_fill = team_size
         
-        final_results.append({
-            'team': team,
-            'sequence': sequence,
-            'gear_assignment': best_assignment,
-            'damage': damage,
-            'chain': chain
-        })
+        quick_results = []
         
-        print(f"  Final damage: {damage:,.0f}\n")
+        for i in range(sample_size):
+            # Sample remaining slots
+            remaining_chars = random.sample(available_roster, slots_to_fill)
+            
+            # Combine with fixed core if present
+            if fixed_core:
+                team = fixed_core + remaining_chars
+            else:
+                team = remaining_chars
+            
+            assignment, damage = greedy_gear_assignment(team, gear_pool, prefilter_top_k=prefilter_k)
+            quick_results.append((damage, team))
+            
+            if (i + 1) % 500 == 0:
+                print(f"  Sampled {i + 1}/{sample_size} teams...")
+    
+    # Sort and keep the best team
+    quick_results.sort(reverse=True, key=lambda x: x[0])
+    best_team = quick_results[0][1] if quick_results else []
+    
+    print(f"\n  Stage 2: Beam search optimization for the best team...\n")
+    
+    if not best_team:
+        print("  No teams found in stage 1!")
+        return []
+    
+    print(f"Best team from stage 1:")
+    
+    # Use beam search to find best gear assignment for the best team
+    best_assignment, best_damage = beam_search_gear_optimization(
+        best_team, gear_pool, beam_width=beam_width, prefilter_top_k=prefilter_k
+    )
+    
+    # Get final sequence with BEST rotation
+    print(f"  Optimizing final rotation...")
+    damage, chain, sequence = evaluate_team_with_gear(best_team, best_assignment, force_best_rotation=True)
+    
+    final_results = [{
+        'team': best_team,
+        'sequence': sequence,
+        'gear_assignment': best_assignment,
+        'damage': damage,
+        'chain': chain
+    }]
+    
+    print(f"  Final damage: {damage:,.0f}\n")
     
     return final_results
 
