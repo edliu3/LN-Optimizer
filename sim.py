@@ -466,508 +466,6 @@ def adaptive_gear_assignment(team, gear_pool, prefilter_top_k=5, max_iterations=
     return best_assignment, best_damage
 
 
-def stochastic_gear_assignment(team, gear_pool, prefilter_top_k=5, attempts=20):
-    """
-    Stochastic gear assignment that tries multiple random assignments and keeps the best.
-    Useful for escaping local maxima when greedy gets stuck.
-    """
-    best_assignment, best_damage = greedy_gear_assignment(team, gear_pool, prefilter_top_k)
-    
-    # Try multiple stochastic attempts
-    for attempt in range(attempts):
-        # Create random assignment with some greedy guidance
-        assignment, remaining_gear = apply_exclusive_gear(team, gear_pool)
-        
-        # Precompute gear eligibility
-        base_characters = get_unique_base_characters(team)
-        eligibility = precompute_gear_eligibility(remaining_gear, base_characters)
-        
-        if prefilter_top_k > 0:
-            filtered_remaining = prefilter_gear_for_team(
-                team, remaining_gear, eligibility,
-                top_k_per_slot=prefilter_top_k,
-                baseline_assignment=assignment,
-            )
-        else:
-            filtered_remaining = remaining_gear
-        
-        gear_by_slot = organize_gear_by_slot(filtered_remaining)
-        slots = list(gear_by_slot.keys())
-        unique_bases = list(base_characters.values())
-        
-        # Random assignment with bias towards high-value gear
-        used_gear = set()
-        
-        for slot in slots:
-            # Get candidates for this slot
-            candidates = []
-            for base_char in unique_bases:
-                base_name = base_char.get_base_character()
-                if slot in gear_by_slot and assignment[base_name][slot] is None:
-                    for gear in gear_by_slot[slot]:
-                        if gear not in used_gear and base_name in eligibility.get(gear.name, set()):
-                            # Add randomness to selection
-                            value = gear.stat_value_for_character(base_char) * random.uniform(0.7, 1.3)
-                            candidates.append((value, base_name, gear))
-            
-            # Sort and assign, but with some randomness
-            candidates.sort(key=lambda x: x[0], reverse=True)
-            
-            # Take top few candidates and randomly choose one
-            if candidates:
-                top_candidates = candidates[:min(3, len(candidates))]
-                value, base_name, gear = random.choice(top_candidates)
-                assignment[base_name][slot] = gear
-                used_gear.add(gear)
-        
-        # Evaluate this assignment
-        damage, _, _ = evaluate_team_with_gear(team, assignment)
-        
-        if damage > best_damage:
-            best_assignment = assignment
-            best_damage = damage
-    
-    return best_assignment, best_damage
-    
-    def generate_neighbor(assignment, used_gear):
-        """Generate a neighbor by swapping gear pieces."""
-        # Get currently assigned gear
-        assigned_slots = []
-        for base_name, slots in assignment.items():
-            for slot, gear in slots.items():
-                if gear is not None and gear.exclusive_for is None:
-                    assigned_slots.append((base_name, slot, gear))
-        
-        if not assigned_slots:
-            return None, used_gear
-        
-        # Pick a random slot to change
-        base_name, slot, old_gear = random.choice(assigned_slots)
-        
-        # Find alternative gear for this slot
-        base_char = base_characters.get(base_name)
-        eligible_gear = [
-            g for g in gear_pool 
-            if g.slot == slot and g != old_gear and g not in used_gear
-            and base_name in eligibility.get(g.name, set())
-        ]
-        
-        if not eligible_gear:
-            return None, used_gear
-        
-        # Pick best alternative
-        new_gear = max(eligible_gear, key=lambda g: g.stat_value_for_character(base_char))
-        
-        # Create new assignment
-        new_assignment = shallow_copy_assignment(assignment)
-        new_assignment[base_name][slot] = new_gear
-        
-        new_used = used_gear - {old_gear} | {new_gear}
-        
-        return new_assignment, new_used
-    
-    def hill_climb(initial_assignment, initial_used, initial_damage):
-        """Perform hill climbing from a starting point."""
-        current_assignment = initial_assignment
-        current_used = initial_used
-        current_damage = initial_damage
-        
-        local_best_assignment = shallow_copy_assignment(current_assignment)
-        local_best_damage = current_damage
-        
-        no_improvement_count = 0
-        
-        for iteration in range(max_iterations):
-            improved = False
-            
-            # Explore neighborhood
-            for _ in range(neighborhood_size):
-                neighbor_assignment, neighbor_used = generate_neighbor(
-                    current_assignment, current_used
-                )
-                
-                if neighbor_assignment is None:
-                    continue
-                
-                neighbor_damage, _, _ = evaluate_team_with_gear(team, neighbor_assignment)
-                
-                if neighbor_damage > current_damage:
-                    current_assignment = neighbor_assignment
-                    current_used = neighbor_used
-                    current_damage = neighbor_damage
-                    improved = True
-                    
-                    if neighbor_damage > local_best_damage:
-                        local_best_assignment = shallow_copy_assignment(neighbor_assignment)
-                        local_best_damage = neighbor_damage
-            
-            if not improved:
-                no_improvement_count += 1
-                if no_improvement_count >= 5:  # Stuck at local optimum
-                    break
-            else:
-                no_improvement_count = 0
-        
-        return local_best_assignment, local_best_damage
-    
-    # Start with greedy as baseline
-    best_assignment, best_damage = greedy_gear_assignment(team, gear_pool, prefilter_top_k)
-    
-    # Calculate used gear from best assignment
-    best_used = set()
-    for base_name, slots in best_assignment.items():
-        for slot, gear in slots.items():
-            if gear is not None:
-                best_used.add(gear)
-    
-    # Hill climb from greedy solution
-    greedy_hc_assignment, greedy_hc_damage = hill_climb(
-        shallow_copy_assignment(best_assignment), 
-        best_used.copy(),
-        best_damage
-    )
-    
-    if greedy_hc_damage > best_damage:
-        best_assignment = greedy_hc_assignment
-        best_damage = greedy_hc_damage
-    
-    # Random restarts
-    for restart in range(restarts):
-        # Create random initial assignment
-        assignment, remaining = apply_exclusive_gear(team, gear_pool)
-        
-        # Random assignment of remaining gear
-        used = set(g for g in gear_pool if g.exclusive_for is not None and 
-                   any(assignment.get(base_name, {}).get(g.slot) == g 
-                       for base_name in assignment.keys()))
-        
-        # Assign remaining gear randomly
-        all_assignable = get_all_assignable_gear(assignment, used)
-        random.shuffle(all_assignable)
-        
-        for base_name, slot, gear in all_assignable:
-            if assignment[base_name][slot] is None and gear not in used:
-                assignment[base_name][slot] = gear
-                used.add(gear)
-        
-        # Evaluate random assignment
-        damage, _, _ = evaluate_team_with_gear(team, assignment)
-        
-        # Hill climb from random start
-        hc_assignment, hc_damage = hill_climb(
-            shallow_copy_assignment(assignment),
-            used.copy(),
-            damage
-        )
-        
-        if hc_damage > best_damage:
-            best_assignment = hc_assignment
-            best_damage = hc_damage
-    
-    return best_assignment, best_damage
-
-
-def simulated_annealing_gear_assignment(team, gear_pool, prefilter_top_k=5,
-                                        initial_temp=2000, min_temp=100,
-                                        cooling_rate=0.95, iterations_per_temp=50):
-    """
-    Pure simulated annealing for gear assignment (not team selection).
-    
-    Treats gear assignment as a discrete optimization problem where:
-    - State: complete gear assignment
-    - Move: swap one gear piece to a different piece
-    - Energy: negative damage (minimize to maximize damage)
-    
-    Parameters:
-    - team: Fixed team of characters
-    - gear_pool: Available gear
-    - prefilter_top_k: Gear prefiltering parameter
-    - initial_temp: Starting temperature
-    - min_temp: Minimum temperature before stopping
-    - cooling_rate: Temperature decay rate
-    - iterations_per_temp: Iterations at each temperature level
-    
-    Returns:
-    - best_assignment: Best gear assignment found
-    - best_damage: Best damage achieved
-    """
-    # Precompute gear eligibility
-    base_characters = get_unique_base_characters(team)
-    eligibility = precompute_gear_eligibility(gear_pool, base_characters)
-    
-    # Start with greedy assignment
-    current_assignment, current_damage = greedy_gear_assignment(
-        team, gear_pool, prefilter_top_k
-    )
-    
-    best_assignment = shallow_copy_assignment(current_assignment)
-    best_damage = current_damage
-    
-    # Track used gear
-    def get_used_gear(assignment):
-        used = set()
-        for slots in assignment.values():
-            for gear in slots.values():
-                if gear is not None:
-                    used.add(gear)
-        return used
-    
-    current_used = get_used_gear(current_assignment)
-    
-    temperature = initial_temp
-    iteration = 0
-    stagnation_counter = 0
-    
-    while temperature > min_temp:
-        improved_this_temp = False
-        
-        for _ in range(iterations_per_temp):
-            iteration += 1
-            
-            # Generate neighbor: swap one gear piece
-            # Pick a random character with assigned gear
-            assigned_chars = [
-                name for name, slots in current_assignment.items()
-                if any(g is not None and g.exclusive_for is None for g in slots.values())
-            ]
-            
-            if not assigned_chars:
-                break
-            
-            base_name = random.choice(assigned_chars)
-            char_slots = [
-                slot for slot, gear in current_assignment[base_name].items()
-                if gear is not None and gear.exclusive_for is None
-            ]
-            
-            if not char_slots:
-                continue
-            
-            slot_to_change = random.choice(char_slots)
-            old_gear = current_assignment[base_name][slot_to_change]
-            base_char = base_characters.get(base_name)
-            
-            # Find alternative gear for this slot
-            eligible_alternatives = [
-                g for g in gear_pool
-                if g.slot == slot_to_change and g != old_gear
-                and g not in current_used
-                and base_name in eligibility.get(g.name, set())
-            ]
-            
-            if not eligible_alternatives:
-                continue
-            
-            # Select new gear (mix of random and greedy based on temperature)
-            if random.random() < temperature / initial_temp:
-                # Random exploration
-                new_gear = random.choice(eligible_alternatives)
-            else:
-                # Greedy exploitation
-                new_gear = max(
-                    eligible_alternatives,
-                    key=lambda g: g.stat_value_for_character(base_char)
-                )
-            
-            # Create neighbor assignment
-            neighbor_assignment = shallow_copy_assignment(current_assignment)
-            neighbor_assignment[base_name][slot_to_change] = new_gear
-            
-            # Update used gear
-            neighbor_used = current_used - {old_gear} | {new_gear}
-            
-            # Evaluate neighbor
-            neighbor_damage, _, _ = evaluate_team_with_gear(team, neighbor_assignment)
-            
-            # Calculate acceptance probability
-            damage_diff = neighbor_damage - current_damage
-            
-            if damage_diff > 0:
-                # Always accept better solutions
-                current_assignment = neighbor_assignment
-                current_damage = neighbor_damage
-                current_used = neighbor_used
-                improved_this_temp = True
-                stagnation_counter = 0
-                
-                if neighbor_damage > best_damage:
-                    best_assignment = shallow_copy_assignment(neighbor_assignment)
-                    best_damage = neighbor_damage
-            else:
-                # Accept worse solutions with SA probability
-                if temperature > 0 and random.random() < np.exp(damage_diff / temperature):
-                    current_assignment = neighbor_assignment
-                    current_damage = neighbor_damage
-                    current_used = neighbor_used
-                    stagnation_counter = 0
-                else:
-                    stagnation_counter += 1
-            
-            # Early termination check
-            if stagnation_counter > iterations_per_temp * 3:
-                return best_assignment, best_damage
-        
-        # Cool down
-        temperature *= cooling_rate
-        
-        # Adaptive cooling: slow down if improving
-        if improved_this_temp:
-            temperature /= cooling_rate  # Slightly undo the cooling
-    
-    return best_assignment, best_damage
-
-
-def tabu_search_gear_assignment(team, gear_pool, prefilter_top_k=5,
-                                max_iterations=200, tabu_tenure=10,
-                                aspiration_threshold=0.01):
-    """
-    Tabu search for gear assignment.
-    
-    Uses memory structure (tabu list) to prevent cycling and escape local optima.
-    Aspiration criteria allows overriding tabu status for significantly better solutions.
-    
-    Parameters:
-    - team: Fixed team of characters
-    - gear_pool: Available gear
-    - prefilter_top_k: Gear prefiltering parameter
-    - max_iterations: Maximum number of iterations
-    - tabu_tenure: Number of iterations a move stays tabu
-    - aspiration_threshold: Percentage improvement needed to override tabu status
-    
-    Returns:
-    - best_assignment: Best gear assignment found
-    - best_damage: Best damage achieved
-    """
-    # Precompute gear eligibility
-    base_characters = get_unique_base_characters(team)
-    eligibility = precompute_gear_eligibility(gear_pool, base_characters)
-    
-    # Start with greedy assignment
-    current_assignment, current_damage = greedy_gear_assignment(
-        team, gear_pool, prefilter_top_k
-    )
-    
-    best_assignment = shallow_copy_assignment(current_assignment)
-    best_damage = current_damage
-    
-    # Track used gear
-    def get_used_gear(assignment):
-        used = set()
-        for slots in assignment.values():
-            for gear in slots.values():
-                if gear is not None:
-                    used.add(gear)
-        return used
-    
-    current_used = get_used_gear(current_assignment)
-    
-    # Tabu list: stores recent moves as (base_name, slot, old_gear_name, new_gear_name)
-    tabu_list = []
-    
-    def is_tabu(move, iteration):
-        """Check if a move is in tabu list."""
-        for tabu_move, expiry in tabu_list:
-            if move == tabu_move and iteration < expiry:
-                return True
-        return False
-    
-    def add_to_tabu(move, iteration):
-        """Add a move to tabu list with expiry."""
-        nonlocal tabu_list
-        tabu_list.append((move, iteration + tabu_tenure))
-        # Clean up expired entries
-        tabu_list = [(m, exp) for m, exp in tabu_list if exp > iteration]
-    
-    def generate_moves(assignment, used_gear):
-        """Generate all possible single gear swaps."""
-        moves = []
-        
-        for base_name, slots in assignment.items():
-            base_char = base_characters.get(base_name)
-            for slot, current_gear in slots.items():
-                if current_gear is None or current_gear.exclusive_for is not None:
-                    continue  # Skip empty slots and exclusive gear
-                
-                # Find alternatives
-                alternatives = [
-                    g for g in gear_pool
-                    if g.slot == slot and g != current_gear and g not in used_gear
-                    and base_name in eligibility.get(g.name, set())
-                ]
-                
-                for new_gear in alternatives:
-                    move = (base_name, slot, current_gear.name, new_gear.name)
-                    moves.append((move, base_name, slot, current_gear, new_gear))
-        
-        return moves
-    
-    # Main tabu search loop
-    for iteration in range(max_iterations):
-        # Generate all possible moves
-        moves = generate_moves(current_assignment, current_used)
-        
-        if not moves:
-            break
-        
-        # Evaluate all moves
-        move_evaluations = []
-        for move_info in moves:
-            move, base_name, slot, old_gear, new_gear = move_info
-            
-            # Create new assignment
-            new_assignment = shallow_copy_assignment(current_assignment)
-            new_assignment[base_name][slot] = new_gear
-            
-            # Evaluate
-            damage, _, _ = evaluate_team_with_gear(team, new_assignment)
-            move_evaluations.append((damage, move, new_assignment, old_gear, new_gear))
-        
-        # Sort by damage (descending)
-        move_evaluations.sort(key=lambda x: x[0], reverse=True)
-        
-        # Select best non-tabu move (or tabu if aspiration criteria met)
-        selected = None
-        for damage, move, new_assignment, old_gear, new_gear in move_evaluations:
-            is_move_tabu = is_tabu(move, iteration)
-            
-            # Aspiration: override tabu if significantly better than best
-            if is_move_tabu:
-                improvement = (damage - best_damage) / best_damage if best_damage > 0 else 0
-                if improvement > aspiration_threshold:
-                    selected = (damage, new_assignment, move, old_gear, new_gear)
-                    break
-            else:
-                selected = (damage, new_assignment, move, old_gear, new_gear)
-                break
-        
-        if selected is None:
-            # All moves are tabu and don't meet aspiration criteria
-            # Pick the least tabu or random move
-            if move_evaluations:
-                selected = move_evaluations[0]
-                damage, move, new_assignment, old_gear, new_gear = selected
-                selected = (damage, new_assignment, move, old_gear, new_gear)
-            else:
-                break
-        
-        damage, new_assignment, move, old_gear, new_gear = selected
-        
-        # Execute the move
-        current_assignment = new_assignment
-        current_damage = damage
-        current_used = current_used - {old_gear} | {new_gear}
-        
-        # Add reverse move to tabu list
-        reverse_move = (move[0], move[1], move[3], move[2])  # Swap old and new gear names
-        add_to_tabu(reverse_move, iteration)
-        
-        # Update best if improved
-        if damage > best_damage:
-            best_assignment = shallow_copy_assignment(new_assignment)
-            best_damage = damage
-    
-    return best_assignment, best_damage
-
 def greedy_gear_assignment(team, gear_pool, prefilter_top_k=5):
     """
     Assigns gear to a team using a greedy algorithm based on the
@@ -1053,7 +551,7 @@ def simulated_annealing_team_search(roster, gear_pool, team_size=20,
     - min_temp: Minimum temperature before stopping (default: 1000)
     - iterations_per_temp: Number of iterations at each temperature level
     - fixed_core: List of characters that are auto-includes
-    - gear_method: Gear optimization method ("greedy", "adaptive_sa", "hill_climbing", "sa", "tabu")
+    - gear_method: Gear optimization method ("greedy", "adaptive_sa", "sa")
     - gear_preset: Parameter preset for gear method ("fast", "balanced", "thorough")
     
     Returns:
@@ -1190,32 +688,23 @@ def simulated_annealing_team_search(roster, gear_pool, team_size=20,
 
 GEAR_METHOD_PRESETS = {
     "fast": {  # For Stage 1 team evaluation
-        "adaptive_sa": {"max_iterations": 10, "temperature": 50},
-        "hill_climbing": {"max_iterations": 50, "restarts": 2},
-        "sa": {"initial_temp": 500, "iterations_per_temp": 10},
-        "tabu": {"max_iterations": 50, "tabu_tenure": 5},
+        "adaptive_sa": {"max_iterations": 10, "temperature": 50}
     },
     "balanced": {  # For general use
-        "adaptive_sa": {"max_iterations": 50, "temperature": 100},
-        "hill_climbing": {"max_iterations": 100, "restarts": 5},
-        "sa": {"initial_temp": 2000, "iterations_per_temp": 50},
-        "tabu": {"max_iterations": 200, "tabu_tenure": 10},
+        "adaptive_sa": {"max_iterations": 50, "temperature": 100}
     },
     "thorough": {  # For final optimization
-        "adaptive_sa": {"max_iterations": 100, "temperature": 200},
-        "hill_climbing": {"max_iterations": 200, "restarts": 10},
-        "sa": {"initial_temp": 3000, "iterations_per_temp": 100},
-        "tabu": {"max_iterations": 300, "tabu_tenure": 15},
+        "adaptive_sa": {"max_iterations": 100, "temperature": 200}
     }
 }
 
-def optimize_gear_for_team(team, gear_pool, method="greedy", preset="balanced", 
+def optimize_gear_for_team(team, gear_pool, method="adaptive_sa", preset="balanced", 
                           prefilter_top_k=5, **kwargs):
     """
     Unified gear optimization interface.
     
     Parameters:
-    - method: "greedy", "adaptive_sa", "sa", "tabu"
+    - method: "adaptive_sa" (only supported method)
     - preset: "fast", "balanced", "thorough" - determines parameter defaults
     - prefilter_top_k: Gear prefiltering parameter
     - kwargs: Override specific parameters from preset
@@ -1229,23 +718,17 @@ def optimize_gear_for_team(team, gear_pool, method="greedy", preset="balanced",
     params.update(kwargs)  # Allow override
     
     # Call appropriate function
-    if method == "greedy":
-        return greedy_gear_assignment(team, gear_pool, prefilter_top_k)
-    elif method == "adaptive_sa":
+    if method == "adaptive_sa":
         return adaptive_gear_assignment(team, gear_pool, prefilter_top_k, **params)
-    elif method == "sa":
-        return simulated_annealing_gear_assignment(team, gear_pool, prefilter_top_k, **params)
-    elif method == "tabu":
-        return tabu_search_gear_assignment(team, gear_pool, prefilter_top_k, **params)
     else:
-        raise ValueError(f"Unknown gear optimization method: {method}")
+        raise ValueError(f"Unknown gear optimization method: {method}. Only 'adaptive_sa' is supported.")
 
 def optimize_team_with_beam_search(roster, gear_pool, team_size=20, 
                                             beam_width=200,
                                             fixed_core=None, use_simulated_annealing=True,
                                             sa_initial_temp=2500, sa_cooling_rate=0.97, sa_min_temp=1000,
                                             bs_iteration_multiplier=5.0,
-                                            gear_method="greedy", gear_preset="fast"):
+                                            gear_method="adaptive_sa", gear_preset="fast"):
     """
     Two-step optimization process:
     1. Find the best promising team using either random sampling or simulated annealing
@@ -1258,7 +741,7 @@ def optimize_team_with_beam_search(roster, gear_pool, team_size=20,
     sa_cooling_rate: Temperature decay rate for simulated annealing
     sa_min_temp: Minimum temperature for simulated annealing
     bs_iteration_multiplier: Multiplier for beam search iterations (higher = more thorough search)
-    gear_method: Gear optimization method ("greedy", "adaptive_sa", "sa", "tabu")
+    gear_method: Gear optimization method ("adaptive_sa" only)
     gear_preset: Parameter preset for gear method ("fast", "balanced", "thorough")
     """
     # Calculate optimal sample_size based on total combinations
@@ -1394,17 +877,17 @@ def _hits_data(sequence, team_buffs):
     
     # Pre-allocate arrays for all hits
     total_hits = sum(char.hits for char in sequence)
+    char_name_arr = np.empty(total_hits, dtype=object)
     crit_damage_arr = np.zeros(total_hits, dtype=np.float64)
     non_crit_damage_arr = np.zeros(total_hits, dtype=np.float64)
-    crit_rate_arr = np.zeros(total_hits, dtype=np.float64)
+    crit_rate_arr = np.ones(total_hits, dtype=np.float64) * 0.1 # Assumed 10% base crit rate
     
-    # Extract character data into arrays
+    # Extract character data into arrays - using same method as calculate_actual_damage
     char_data = []
     hit_indices = []
     current_idx = 0
     
-    team_crit_rate = min(team_buffs.get("crit_rate", 0), 1.0)
-    overall_buff = team_buffs.get("overall", 1)
+    team_crit_rate = min(team_buffs.get("crit_rate", 0) + 0.1, 1.0)
     
     for char in sequence:
         # Per-character effective rate: team base + personal temp buff (halved)
@@ -1413,67 +896,72 @@ def _hits_data(sequence, team_buffs):
             1.0
         )
         
+        # Use same calculations as calculate_actual_damage
+        single_hit = calculate_single_hit(char, team_buffs)
         chain_mult = calculate_chain_multiplier(team_buffs, char.temp_buffs)
-        
-        # Calculate character-specific damage stats
-        atk, dtb, ratio = calculate_damage_stats(char, team_buffs)
         crit_mult = calculate_crit_multiplier(char, team_buffs)
         
         # Store character data for vectorized processing
         char_data.append({
-            'atk': atk,
-            'dtb': dtb,
-            'ratio': ratio,
+            'name': char.name,
+            'single_hit': single_hit,
+            'chain_mult': chain_mult,
             'crit_mult': crit_mult,
             'crit_rate': char_crit_rate,
-            'chain_mult': chain_mult,
             'hits': char.hits
         })
         
         hit_indices.append((current_idx, current_idx + char.hits))
         current_idx += char.hits
     
-    # Vectorized calculation for all hits
+    # Vectorized calculation for all hits - using same logic as calculate_actual_damage
     current_chain = 0
     for i, (start_idx, end_idx) in enumerate(hit_indices):
         data = char_data[i]
         num_hits = end_idx - start_idx
         
-        # Create chain bonus array for this character's hits
-        hit_numbers = np.arange(num_hits) + current_chain
-        chain_bonuses = hit_numbers * 0.1 + 1
-        
-        # Vectorized damage calculations
-        base_damage = np.floor(np.round(data['dtb'] * data['atk']) * overall_buff * data['ratio'] * chain_bonuses)
-        crit_damage = np.floor(np.round(data['dtb'] * data['atk']) * data['crit_mult'] * overall_buff * data['ratio'] * chain_bonuses)
-        
-        # Assign to result arrays
-        crit_damage_arr[start_idx:end_idx] = crit_damage
-        non_crit_damage_arr[start_idx:end_idx] = base_damage
-        crit_rate_arr[start_idx:end_idx] = data['crit_rate']
-        
-        # Update chain count
-        current_chain += num_hits * data['chain_mult']
+        if num_hits > 0:
+            # Create chain bonus array for this character's hits - same as calculate_actual_damage
+            hit_chains = current_chain + np.arange(num_hits) * data['chain_mult']
+            chain_bonuses = hit_chains * 0.1 + 1
+            
+            # Calculate damage using same method as calculate_actual_damage
+            # Non-crit damage: single_hit_without_crit * chain_bonuses
+            # We need to remove crit_mult from single_hit to get base damage
+            base_single_hit = data['single_hit'] / data['crit_mult']
+            non_crit_damage = base_single_hit * chain_bonuses
+            
+            # Crit damage: single_hit * chain_bonuses (single_hit already includes crit_mult)
+            crit_damage = data['single_hit'] * chain_bonuses
+            
+            # Assign to result arrays
+            char_name_arr[start_idx:end_idx] = data['name']
+            crit_damage_arr[start_idx:end_idx] = crit_damage
+            non_crit_damage_arr[start_idx:end_idx] = non_crit_damage
+            crit_rate_arr[start_idx:end_idx] = data['crit_rate']
+            
+            # Update chain count - same as calculate_actual_damage
+            current_chain += num_hits * data['chain_mult']
     
     # Convert back to list of tuples for compatibility
-    return [(crit_damage_arr[i], non_crit_damage_arr[i], crit_rate_arr[i]) for i in range(total_hits)]
+    return list(zip(char_name_arr, crit_damage_arr, non_crit_damage_arr, crit_rate_arr))
 
 def simulate_crit_distribution(sequence, team_buffs, n_simulations=60_000):
     hdata = _hits_data(sequence, team_buffs)
     if not hdata:
         return np.array([]), 0, min(team_buffs.get("crit_rate", 0), 1.0)
 
-    crit_arr     = np.array([h[0] for h in hdata], dtype=np.float64)
-    non_crit_arr = np.array([h[1] for h in hdata], dtype=np.float64)
-    rate_arr     = np.array([h[2] for h in hdata], dtype=np.float64)
-    full_damage  = int(crit_arr.sum())
+    crit_arr     = np.array([h[1] for h in hdata], dtype=np.float64)
+    non_crit_arr = np.array([h[2] for h in hdata], dtype=np.float64)
+    rate_arr     = np.array([h[3] for h in hdata], dtype=np.float64)
+    full_damage  = calculate_actual_damage(sequence, team_buffs)[0]
 
     rolls = np.random.random((n_simulations, len(hdata)))
     crits = rolls < rate_arr
     totals = (crits * crit_arr + ~crits * non_crit_arr).sum(axis=1)
     fractions = totals / full_damage
 
-    team_crit_rate = min(team_buffs.get("crit_rate", 0), 1.0)
+    team_crit_rate = min(team_buffs.get("crit_rate", 0) + 0.1, 1.0)
     return fractions, full_damage, team_crit_rate
 
 def rotation_optimizer(current_buffs, team):

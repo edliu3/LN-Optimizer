@@ -5,12 +5,10 @@ from gear import Gear
 from character import Character
 from sim import (
     optimize_team_with_beam_search, 
-    beam_search_gear_optimization, 
     adaptive_gear_assignment,
-    simulated_annealing_gear_assignment,
     evaluate_team_with_gear
 )
-from visualization import print_results
+from visualization import print_results, generate_html_report
 from data.data import _load_data
 from utils import determine_prefilter_k
 
@@ -53,31 +51,24 @@ if mode == "1":
     print("\n" + "=" * 70)
     print("RESULTS")
     print("=" * 70)
-    print_results([{'team': fixed_team, 
+    results = [{'team': fixed_team, 
                'sequence': sequence,
                'gear_assignment': best_assignment,
                'damage': best_damage,
-               'chain': chain}])
+               'chain': chain}]
+    
+    print_results(results)
+    
+    # Generate HTML report
+    print("\n" + "=" * 70)
+    print("GENERATING HTML REPORT...")
+    print("=" * 70)
+    html_file = generate_html_report(results, _DATA_FILE)
+    if html_file:
+        print(f"HTML report saved to: {html_file}")
 
 elif mode == "2":
-    print("\n🚀 Running full beam search optimization...\n")
-    
-    print("Choose gear optimization method for Stage 1 team evaluation:")
-    print("1. Adaptive SA (recommended)")
-    print("2. Simulated Annealing")
-    print("3. Tabu Search")
-    print("4. Greedy (original)")
-    
-    gear_choice = input("\nEnter choice (1-4): ").strip()
-    
-    gear_method_map = {
-        "1": "adaptive_sa",
-        "2": "sa", 
-        "3": "tabu",
-        "4": "greedy"
-    }
-    
-    gear_method = gear_method_map.get(gear_choice, "adaptive_sa")
+    print("\n🚀 Running full team + gear optimization...\n")
     
     print("\nChoose optimization preset:")
     print("1. Fast (quick team search)")
@@ -94,7 +85,7 @@ elif mode == "2":
     
     gear_preset = preset_map.get(preset_choice, "fast")
     
-    print(f"\nUsing {gear_method} with {gear_preset} preset")
+    print(f"\nUsing Adaptive SA with {gear_preset} preset")
     
     # Define core characters that are almost always optimal
     core_character_names = ["OM Liberta", "Bride Rafi", "Shrine Granadair"]
@@ -109,7 +100,7 @@ elif mode == "2":
         team_size=20,
         beam_width=400,
         fixed_core=fixed_core,
-        gear_method=gear_method,
+        gear_method="adaptive_sa",
         gear_preset=gear_preset
     )
     
@@ -118,5 +109,13 @@ elif mode == "2":
     print("=" * 70)
     
     print_results(results)
+    
+    # Generate HTML report
+    print("\n" + "=" * 70)
+    print("GENERATING HTML REPORT...")
+    print("=" * 70)
+    html_file = generate_html_report(results, _DATA_FILE)
+    if html_file:
+        print(f"HTML report saved to: {html_file}")
 else:
     print("Invalid choice!")
