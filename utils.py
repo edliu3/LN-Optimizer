@@ -49,7 +49,7 @@ def calculate_team_buffs(team):
         "MATK%": 1,
         "overall": 1,
         "crit_dmg": 0,
-        "chain_count": 1,
+        "chain_count": 0,
         "crit_rate": 0,
         "buff_count": 0
     }
@@ -167,7 +167,7 @@ def calculate_chain_multiplier(team_buffs, char_temp_buffs):
         char_temp_buffs: Dict of character temporary buffs
         
     Returns:
-        Chain multiplier value
+        Chain multiplier value (how much chain count increases per hit)
     """
     if team_buffs.get("chain_count") or char_temp_buffs.get("chain_count") is not None:
         return 1 + team_buffs.get("chain_count", 0) + char_temp_buffs.get("chain_count", 0)

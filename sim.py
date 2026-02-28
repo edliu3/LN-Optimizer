@@ -5,6 +5,7 @@ from functools import lru_cache
 import hashlib
 import time
 from utils import determine_prefilter_k, get_unique_base_characters, organize_gear_by_slot, calculate_damage_stats, calculate_crit_multiplier, initialize_gear_assignment, get_eligible_gear_for_character, get_attackers_and_buffers, calculate_chain_multiplier, calculate_team_buffs
+from character import Character
 import random
 
 # Global cache for damage evaluations
@@ -32,8 +33,8 @@ def get_assignment_hash(gear_assignments):
     return hashlib.md5('|'.join(items).encode()).hexdigest()
 
 @lru_cache(maxsize=1000)
-def cached_calculate_damage_stats(char_name, char_atk, char_damage_type, char_ratio, team_buffs_tuple):
-    """Cached version of calculate_damage_stats."""
+def cached_calculate_damage_stats(char_name, char_atk, char_damage_type, char_ratio, team_buffs_tuple, temp_atk_buff, temp_matk_buff, buff_count):
+    """Cached version of calculate_damage_stats with proper temp_buffs handling."""
     # Convert tuple back to dict for calculation
     team_buffs = dict(team_buffs_tuple)
     
@@ -42,13 +43,15 @@ def cached_calculate_damage_stats(char_name, char_atk, char_damage_type, char_ra
         damage_type_buff = 1
     elif char_damage_type == "MATK":
         atk = char_atk
-        damage_type_buff = team_buffs.get('MATK%', 1) * 1.0  # Simplified temp_buffs
+        damage_type_buff = team_buffs.get('MATK%', 1) * (temp_matk_buff / 2)
     else:  # ATK
         atk = char_atk
-        damage_type_buff = team_buffs.get('ATK%', 1) * 1.0  # Simplified temp_buffs
+        damage_type_buff = team_buffs.get('ATK%', 1) * (temp_atk_buff / 2)
     
+    # Handle special character cases
     ratio = char_ratio
-    # Skip special character case for simplicity in caching
+    if char_name == "NH Nebris":
+        ratio = 0.2 * buff_count
     
     return atk, damage_type_buff, ratio
 
@@ -74,14 +77,20 @@ def precompute_gear_eligibility(gear_pool, base_characters):
     _gear_eligibility_cache[key] = eligibility
     return eligibility
 
-def calculate_single_hit(char, team_buffs):
+def calculate_single_hit(char, team_buffs, support_bonus=None):
     """Calculates the damage of a single hit including all buffs and chain count."""
     # Use cached calculations
     char_key = (char.name, char.atk, char.damage_type, char.ratio_per_hit)
     buffs_key = tuple(sorted(team_buffs.items()))
     
+    # Extract temp_buffs for caching
+    temp_atk_buff = char.temp_buffs.get('ATK%', 2)
+    temp_matk_buff = char.temp_buffs.get('MATK%', 2)
+    buff_count = team_buffs.get('buff_count', 0)
+    
     atk, damage_type_buff, ratio = cached_calculate_damage_stats(
-        char.name, char.atk, char.damage_type, char.ratio_per_hit, buffs_key
+        char.name, char.atk, char.damage_type, char.ratio_per_hit, buffs_key,
+        temp_atk_buff, temp_matk_buff, buff_count
     )
     
     crit_key = (team_buffs.get('crit_dmg', 0),)  # Just pass the crit_dmg value
@@ -89,9 +98,13 @@ def calculate_single_hit(char, team_buffs):
     
     total_single_hit = round(damage_type_buff * atk) * crit_mult * (team_buffs.get('overall', 1)) * ratio
     
+    # Apply support bonus if provided
+    if support_bonus is not None:
+        total_single_hit *= (1 + support_bonus)
+    
     return floor(total_single_hit)
 
-def calculate_actual_damage(sequence, current_team_buffs):
+def calculate_actual_damage(sequence, current_team_buffs, support_bonus=None):
     """Calculates the total damage of a sequence."""
     if not sequence:
         return 0, 0
@@ -99,7 +112,7 @@ def calculate_actual_damage(sequence, current_team_buffs):
     # Vectorized per-character calculations
     char_data = []
     for char in sequence:
-        single_hit = calculate_single_hit(char, current_team_buffs)
+        single_hit = calculate_single_hit(char, current_team_buffs, support_bonus)
         chain_mult = calculate_chain_multiplier(current_team_buffs, char.temp_buffs)
         char_data.append((char.hits, single_hit, chain_mult))
     
@@ -125,28 +138,39 @@ def calculate_actual_damage(sequence, current_team_buffs):
     
     return total_damage, current_chain
 
-def evaluate_team_with_gear(team, gear_assignments):
+def evaluate_team_with_gear(team, gear_assignments, support_bonus=None):
     """Assigns gear to characters and calculates the total damage."""
     # Check cache first
     assignment_hash = get_assignment_hash(gear_assignments)
     cache_key = assignment_hash
+    if support_bonus is not None:
+        cache_key = f"{assignment_hash}_{support_bonus}"
     
     if cache_key in _damage_cache:
         return _damage_cache[cache_key]
     
-    # Create copies of characters and equip gear
+    # Apply gear assignments to team
     team_with_gear = []
     for char in team:
-        char_copy = char.copy()
-        char_copy.unequip_all_gear()
+        char_copy = Character(
+            name=char.name,
+            damage_type=char.damage_type,
+            atk=char.base_atk,  # Use base stats to recalculate
+            crit_dmg=char.base_crit_dmg,
+            ratio_per_hit=char.ratio_per_hit,
+            hits=char.hits,
+            buffs=char.buffs.copy(),
+            temp_buffs=char.temp_buffs.copy()
+        )
         
-        # Get base character name to look up gear
+        # Equip gear
         base_name = char.get_base_character()
-        
         if base_name in gear_assignments:
-            for slot, gear in gear_assignments[base_name].items():
-                if gear is not None:
-                    char_copy.equipped_gear[slot] = gear
+            for slot, gear_piece in gear_assignments[base_name].items():
+                if gear_piece is not None:
+                    char_copy.equip_gear(gear_piece)
+        else:
+            # No gear assigned for this character, use base stats
             char_copy._recalculate_stats()
         team_with_gear.append(char_copy)
     
@@ -157,7 +181,7 @@ def evaluate_team_with_gear(team, gear_assignments):
     sequence = rotation_optimizer(team_buffs, attackers)
     
     full_sequence = buffers + sequence
-    damage, chain = calculate_actual_damage(full_sequence, team_buffs)
+    damage, chain = calculate_actual_damage(full_sequence, team_buffs, support_bonus)
     
     result = (damage, chain, full_sequence)
     _damage_cache[cache_key] = result
@@ -165,7 +189,7 @@ def evaluate_team_with_gear(team, gear_assignments):
 
 def beam_search_gear_optimization(team, gear_pool, beam_width=100, depth_limit=None, 
                                            prefilter_top_k=5, initial_assignment=None,
-                                           iteration_multiplier=1.0):
+                                           iteration_multiplier=1.0, support_bonus=None):
     """
     Search across all gear assignments to maximize damage.
 
@@ -209,17 +233,17 @@ def beam_search_gear_optimization(team, gear_pool, beam_width=100, depth_limit=N
         
         # Use shared preparation for the remaining gear
         _, _, eligibility, filtered_remaining, gear_by_slot = _prepare_gear_search(
-            team, remaining_gear, prefilter_top_k, base_characters, start_assignment
+            team, remaining_gear, prefilter_top_k, base_characters, start_assignment, support_bonus
         )
         
-        initial_damage, _, _ = evaluate_team_with_gear(team, start_assignment)
+        initial_damage, _, _ = evaluate_team_with_gear(team, start_assignment, support_bonus)
         print(f"  Using Stage 1 assignment as starting point (damage: {initial_damage:,.0f})")
     else:
         # Use shared preparation for the standard case
         start_assignment, remaining_gear, eligibility, filtered_remaining, gear_by_slot = _prepare_gear_search(
-            team, gear_pool, prefilter_top_k, base_characters
+            team, gear_pool, prefilter_top_k, base_characters, None, support_bonus
         )
-        initial_damage, _, _ = evaluate_team_with_gear(team, start_assignment)
+        initial_damage, _, _ = evaluate_team_with_gear(team, start_assignment, support_bonus)
         # used_gear_in_initial remains empty set for standard case
     
     slots = list(gear_by_slot.keys()) if gear_by_slot else []
@@ -283,7 +307,7 @@ def beam_search_gear_optimization(team, gear_pool, beam_width=100, depth_limit=N
                         new_used_gear = used_gear | {gear}
                         
                         # Evaluate with caching
-                        new_damage, _, _ = evaluate_team_with_gear(team, new_assignment)
+                        new_damage, _, _ = evaluate_team_with_gear(team, new_assignment, support_bonus)
                         
                         # Add to next beam
                         heapq.heappush(next_beam, (-new_damage, counter, new_assignment, new_used_gear))
@@ -309,13 +333,13 @@ def shallow_copy_assignment(assignment):
     return new_assignment
 
 def _beam_search_core(team, initial_assignment, slots_to_consider, eligibility, gear_by_slot,
-                      beam_width, max_iterations):
+                      beam_width, max_iterations, support_bonus=None):
     """
     Core beam search loop. slots_to_consider is a list of (base_name, slot) pairs
     to attempt filling. Pass all (base_name × slot) combos for full search,
     or just empty ones for fill phase.
     """
-    initial_damage, _, _ = evaluate_team_with_gear(team, initial_assignment)
+    initial_damage, _, _ = evaluate_team_with_gear(team, initial_assignment, support_bonus)
     counter = 0
     beam = [(-initial_damage, counter, initial_assignment, frozenset())]
     best_ever = (-initial_damage, initial_assignment)
@@ -339,7 +363,7 @@ def _beam_search_core(team, initial_assignment, slots_to_consider, eligibility, 
                         continue
                     new_assignment = shallow_copy_assignment(assignment)
                     new_assignment[base_name][slot] = gear
-                    new_damage, _, _ = evaluate_team_with_gear(team, new_assignment)
+                    new_damage, _, _ = evaluate_team_with_gear(team, new_assignment, support_bonus)
                     counter += 1
                     heapq.heappush(next_beam, (-new_damage, counter, new_assignment, used_gear | {gear}))
 
@@ -349,7 +373,7 @@ def _beam_search_core(team, initial_assignment, slots_to_consider, eligibility, 
 
     return -best_ever[0], best_ever[1]
 
-def _prepare_gear_search(team, gear_pool, prefilter_top_k, base_characters=None, initial_assignment=None):
+def _prepare_gear_search(team, gear_pool, prefilter_top_k, base_characters=None, initial_assignment=None, support_bonus=None):
     """Returns (assignment, remaining_gear, eligibility, filtered_gear, gear_by_slot)."""
     if base_characters is None:
         base_characters = get_unique_base_characters(team)
@@ -362,6 +386,7 @@ def _prepare_gear_search(team, gear_pool, prefilter_top_k, base_characters=None,
             top_k_per_slot=prefilter_top_k,
             baseline_assignment=initial_assignment or assignment,
             base_characters=base_characters,
+            support_bonus=support_bonus
         )
     else:
         filtered = remaining_gear
@@ -369,7 +394,7 @@ def _prepare_gear_search(team, gear_pool, prefilter_top_k, base_characters=None,
     return assignment, remaining_gear, eligibility, filtered, gear_by_slot
 
 def prefilter_gear_for_team(team, remaining_gear, eligibility, top_k_per_slot,
-                                     baseline_assignment=None, base_characters=None):
+                                     baseline_assignment=None, base_characters=None, support_bonus=None):
     """
     Uses stat_value_for_character to give top candidates for gear for each slot.
     """
@@ -394,7 +419,7 @@ def prefilter_gear_for_team(team, remaining_gear, eligibility, top_k_per_slot,
 
     # Floor guarantee: real damage delta for uncovered pairs (simplified)
     if baseline_assignment is not None:
-        baseline_dmg, _, _ = evaluate_team_with_gear(team, baseline_assignment)
+        baseline_dmg, _, _ = evaluate_team_with_gear(team, baseline_assignment, support_bonus)
         
         for char in unique_bases:
             base_name = char.get_base_character()
@@ -410,7 +435,7 @@ def prefilter_gear_for_team(team, remaining_gear, eligibility, top_k_per_slot,
                 for gear in eligible:
                     trial = shallow_copy_assignment(baseline_assignment)
                     trial[base_name][slot] = gear
-                    trial_dmg, _, _ = evaluate_team_with_gear(team, trial)
+                    trial_dmg, _, _ = evaluate_team_with_gear(team, trial, support_bonus)
                     delta = trial_dmg - baseline_dmg
                     if delta > best_delta:
                         best_delta, best_gear = delta, gear
@@ -421,13 +446,13 @@ def prefilter_gear_for_team(team, remaining_gear, eligibility, top_k_per_slot,
     return list(gear_to_keep)
 
 def adaptive_gear_assignment(team, gear_pool, prefilter_top_k=5, max_iterations=50, 
-                           temperature=100, cooling_rate=0.975):
+                           temperature=100, cooling_rate=0.975, support_bonus=None):
     """
     Adaptive gear assignment that can escape local maxima using simulated annealing.
     Starts with greedy assignment then applies perturbations to find better solutions.
     """
     # Start with greedy assignment as baseline
-    best_assignment, best_damage = greedy_gear_assignment(team, gear_pool, prefilter_top_k)
+    best_assignment, best_damage = greedy_gear_assignment(team, gear_pool, prefilter_top_k, support_bonus)
     
     # If team is small or gear pool is limited, greedy might be optimal
     if len(team) <= 5 or len(gear_pool) <= len(team) * 3:
@@ -467,11 +492,19 @@ def adaptive_gear_assignment(team, gear_pool, prefilter_top_k=5, max_iterations=
             slot_to_perturb = random.choice(char_slots)
             current_gear = perturbed_assignment[base_name][slot_to_perturb]
             
+            # Track currently used gear to avoid duplication
+            currently_used_gear = set()
+            for char_name, slots in perturbed_assignment.items():
+                for slot, gear in slots.items():
+                    if gear is not None:
+                        currently_used_gear.add(gear)
+            
             # Find alternative gear for this slot
             base_character = next(c for c in team if c.get_base_character() == base_name)
             eligible_gear = [g for g in gear_pool 
                            if g.slot == slot_to_perturb and 
                               g != current_gear and
+                              g not in currently_used_gear and
                               g.can_equip_to(base_name)]
             
             if eligible_gear:
@@ -492,7 +525,7 @@ def adaptive_gear_assignment(team, gear_pool, prefilter_top_k=5, max_iterations=
                 perturbed_assignment[base_name][slot_to_perturb] = new_gear
         
         # Evaluate perturbed assignment
-        perturbed_damage, _, _ = evaluate_team_with_gear(team, perturbed_assignment)
+        perturbed_damage, _, _ = evaluate_team_with_gear(team, perturbed_assignment, support_bonus)
         
         # Calculate acceptance probability
         damage_diff = perturbed_damage - current_damage
@@ -525,14 +558,14 @@ def adaptive_gear_assignment(team, gear_pool, prefilter_top_k=5, max_iterations=
     return best_assignment, best_damage
 
 
-def greedy_gear_assignment(team, gear_pool, prefilter_top_k=5):
+def greedy_gear_assignment(team, gear_pool, prefilter_top_k=5, support_bonus=None):
     """
     Assigns gear to a team using a greedy algorithm based on the
     stat_value_for_character method.
     """
     base_characters = get_unique_base_characters(team)
     assignment, remaining_gear, eligibility, filtered_remaining, gear_by_slot = _prepare_gear_search(
-        team, gear_pool, prefilter_top_k, base_characters
+        team, gear_pool, prefilter_top_k, base_characters, None, support_bonus
     )
     
     slots = list(gear_by_slot.keys())
@@ -579,14 +612,14 @@ def greedy_gear_assignment(team, gear_pool, prefilter_top_k=5):
                 used_gear.add(gear)
     
     # Evaluate final damage
-    damage, _, _ = evaluate_team_with_gear(team, assignment)
+    damage, _, _ = evaluate_team_with_gear(team, assignment, support_bonus)
     
     return assignment, damage
 
 def simulated_annealing_team_search(roster, gear_pool, team_size=20, 
                                    initial_temp=2500, cooling_rate=0.97, min_temp=1000,
                                    iterations_per_temp=400, fixed_core=None,
-                                   gear_method="greedy", gear_preset="fast"):
+                                   gear_method="greedy", gear_preset="fast", support_bonus=None):
     """
     Simulated annealing for team optimization.
     
@@ -630,7 +663,8 @@ def simulated_annealing_team_search(roster, gear_pool, team_size=20,
         current_team, gear_pool, 
         method=gear_method, 
         preset=gear_preset,
-        prefilter_top_k=prefilter_k
+        prefilter_top_k=prefilter_k,
+        support_bonus=support_bonus
     )
     
     best_team = current_team.copy()
@@ -696,7 +730,8 @@ def simulated_annealing_team_search(roster, gear_pool, team_size=20,
                 neighbor_team, gear_pool, 
                 method=gear_method, 
                 preset=gear_preset,
-                prefilter_top_k=prefilter_k
+                prefilter_top_k=prefilter_k,
+                support_bonus=support_bonus
             )
             
             # Calculate acceptance probability
@@ -747,7 +782,7 @@ GEAR_METHOD_PRESETS = {
 }
 
 def optimize_gear_for_team(team, gear_pool, method="adaptive_sa", preset="balanced", 
-                          prefilter_top_k=5, **kwargs):
+                          prefilter_top_k=5, support_bonus=None, **kwargs):
     """
     Unified gear optimization interface.
     
@@ -767,7 +802,7 @@ def optimize_gear_for_team(team, gear_pool, method="adaptive_sa", preset="balanc
     
     # Call appropriate function
     if method == "adaptive_sa":
-        return adaptive_gear_assignment(team, gear_pool, prefilter_top_k, **params)
+        return adaptive_gear_assignment(team, gear_pool, prefilter_top_k, support_bonus=support_bonus, **params)
     else:
         raise ValueError(f"Unknown gear optimization method: {method}. Only 'adaptive_sa' is supported.")
 
@@ -776,7 +811,7 @@ def optimize_team_with_beam_search(roster, gear_pool, team_size=20,
                                             fixed_core=None, use_simulated_annealing=True,
                                             sa_initial_temp=2500, sa_cooling_rate=0.97, sa_min_temp=1000,
                                             bs_iteration_multiplier=5.0,
-                                            gear_method="adaptive_sa", gear_preset="fast"):
+                                            gear_method="adaptive_sa", gear_preset="fast", support_bonus=None):
     """
     Two-step optimization process:
     1. Find the best promising team using either simulated annealing (recommended) or random sampling
@@ -826,7 +861,8 @@ def optimize_team_with_beam_search(roster, gear_pool, team_size=20,
             sa_initial_temp, sa_cooling_rate, sa_min_temp, 
             fixed_core=fixed_core,
             gear_method=gear_method,
-            gear_preset=gear_preset
+            gear_preset=gear_preset,
+            support_bonus=support_bonus
         )
     else:
         print(f"  Sample size (20% of combinations): {sample_size:,}")
@@ -860,7 +896,8 @@ def optimize_team_with_beam_search(roster, gear_pool, team_size=20,
                 team, gear_pool, 
                 method=gear_method, 
                 preset=gear_preset,
-                prefilter_top_k=prefilter_k
+                prefilter_top_k=prefilter_k,
+                support_bonus=support_bonus
             )
             quick_results.append((damage, team, assignment))
             
@@ -889,7 +926,8 @@ def optimize_team_with_beam_search(roster, gear_pool, team_size=20,
     best_assignment, best_damage = beam_search_gear_optimization(
         best_team, gear_pool, beam_width=beam_width, prefilter_top_k=prefilter_k,
         initial_assignment=stage1_best_assignment,
-        iteration_multiplier=bs_iteration_multiplier
+        iteration_multiplier=bs_iteration_multiplier,
+        support_bonus=support_bonus
     )
     
     # Check for empty slots and fill with beam search optimization
@@ -904,14 +942,15 @@ def optimize_team_with_beam_search(roster, gear_pool, team_size=20,
         best_assignment, filled_count, fill_damage = beam_search_fill_empty_slots(
             best_team, gear_pool, best_assignment, 
             beam_width=max(20, beam_width//4),  # Smaller beam for fill
-            prefilter_top_k=0  # No filtering for fill phase - guarantee coverage
+            prefilter_top_k=0,  # No filtering for fill phase - guarantee coverage
+            support_bonus=support_bonus
         )
         print(f"  Filled {filled_count} slots, damage: {fill_damage:,.0f}")
         best_damage = fill_damage
     
     # Get final sequence with BEST rotation
     print(f"  Optimizing final rotation...")
-    damage, chain, sequence = evaluate_team_with_gear(best_team, best_assignment)
+    damage, chain, sequence = evaluate_team_with_gear(best_team, best_assignment, support_bonus)
     
     final_results = [{
         'team': best_team,
@@ -925,8 +964,8 @@ def optimize_team_with_beam_search(roster, gear_pool, team_size=20,
     
     return final_results
 
-def _hits_data(sequence, team_buffs):
-    """Helper function to get (crit_damage, non_crit_damage, crit_rate) for each hit"""
+def _hits_data(sequence, team_buffs, support_bonus=None):
+    """Helper function to get (char_name, crit_damage, non_crit_damage, crit_rate) for each hit"""
     if not sequence:
         return []
     
@@ -935,7 +974,7 @@ def _hits_data(sequence, team_buffs):
     char_name_arr = np.empty(total_hits, dtype=object)
     crit_damage_arr = np.zeros(total_hits, dtype=np.float64)
     non_crit_damage_arr = np.zeros(total_hits, dtype=np.float64)
-    crit_rate_arr = np.ones(total_hits, dtype=np.float64) * 0.1 # Assumed 10% base crit rate
+    crit_rate_arr = np.zeros(total_hits, dtype=np.float64)
     
     # Extract character data into arrays - using same method as calculate_actual_damage
     char_data = []
@@ -952,7 +991,7 @@ def _hits_data(sequence, team_buffs):
         )
         
         # Use same calculations as calculate_actual_damage
-        single_hit = calculate_single_hit(char, team_buffs)
+        single_hit = calculate_single_hit(char, team_buffs, support_bonus)
         chain_mult = calculate_chain_multiplier(team_buffs, char.temp_buffs)
         crit_mult = calculate_crit_multiplier(char, team_buffs)
         
@@ -1001,15 +1040,15 @@ def _hits_data(sequence, team_buffs):
     # Convert back to list of tuples for compatibility
     return list(zip(char_name_arr, crit_damage_arr, non_crit_damage_arr, crit_rate_arr))
 
-def simulate_crit_distribution(sequence, team_buffs, n_simulations=60_000):
-    hdata = _hits_data(sequence, team_buffs)
+def simulate_crit_distribution(sequence, team_buffs, n_simulations=60_000, support_bonus=None):
+    hdata = _hits_data(sequence, team_buffs, support_bonus)
     if not hdata:
         return np.array([]), 0, min(team_buffs.get("crit_rate", 0), 1.0)
 
     crit_arr     = np.array([h[1] for h in hdata], dtype=np.float64)
     non_crit_arr = np.array([h[2] for h in hdata], dtype=np.float64)
     rate_arr     = np.array([h[3] for h in hdata], dtype=np.float64)
-    full_damage  = calculate_actual_damage(sequence, team_buffs)[0]
+    full_damage  = calculate_actual_damage(sequence, team_buffs, support_bonus)[0]
 
     rolls = np.random.random((n_simulations, len(hdata)))
     crits = rolls < rate_arr
@@ -1057,8 +1096,13 @@ def rotation_optimizer(current_buffs, team):
     
     for char, char_atk, char_damage_type, char_ratio in zip(char_names, char_atks, char_damage_types, char_ratios):
         # Use cached calculations for each character
+        temp_atk_buff = char.temp_buffs.get('ATK%', 2)
+        temp_matk_buff = char.temp_buffs.get('MATK%', 2)
+        buff_count = current_buffs.get('buff_count', 0)
+        
         atk, damage_type_buff, ratio = cached_calculate_damage_stats(
-            char.name, char_atk, char_damage_type, char_ratio, buffs_key
+            char.name, char_atk, char_damage_type, char_ratio, buffs_key,
+            temp_atk_buff, temp_matk_buff, buff_count
         )
         crit_mult = cached_calculate_crit_multiplier(char.crit_dmg, crit_key)
         
@@ -1192,7 +1236,7 @@ def fill_empty_gear_slots(team, gear_pool, assignment):
     return assignment, slots_filled
 
 
-def beam_search_fill_empty_slots(team, gear_pool, assignment, beam_width=50, prefilter_top_k=3):
+def beam_search_fill_empty_slots(team, gear_pool, assignment, beam_width=50, prefilter_top_k=3, support_bonus=None):
     """
     Fill empty slots using beam search optimization on remaining gear only.
     
@@ -1249,7 +1293,7 @@ def beam_search_fill_empty_slots(team, gear_pool, assignment, beam_width=50, pre
     # We'll use a modified version that only considers empty slots
     beam_assignment, beam_damage = _beam_search_empty_slots(
         team, remaining_gear, focused_assignment, empty_slots,
-        beam_width=beam_width, prefilter_top_k=prefilter_top_k
+        beam_width=beam_width, prefilter_top_k=prefilter_top_k, support_bonus=support_bonus
     )
     
     # Merge beam search results back into original assignment
@@ -1272,7 +1316,7 @@ def beam_search_fill_empty_slots(team, gear_pool, assignment, beam_width=50, pre
     return assignment, slots_filled, beam_damage
 
 
-def _beam_search_empty_slots(team, remaining_gear, assignment, empty_slots, beam_width=50, prefilter_top_k=3):
+def _beam_search_empty_slots(team, remaining_gear, assignment, empty_slots, beam_width=50, prefilter_top_k=3, support_bonus=None):
     """
     Internal beam search that only operates on specified empty slots.
     Optimizes assignment of remaining gear to empty slots using beam search.
@@ -1290,6 +1334,7 @@ def _beam_search_empty_slots(team, remaining_gear, assignment, empty_slots, beam
             top_k_per_slot=prefilter_top_k,
             baseline_assignment=assignment,
             base_characters=base_characters,
+            support_bonus=support_bonus
         )
     else:
         filtered_remaining = remaining_gear
@@ -1300,7 +1345,7 @@ def _beam_search_empty_slots(team, remaining_gear, assignment, empty_slots, beam
     max_iterations = len(set(slot for _, slot in empty_slots))  # One iteration per slot type
     best_damage, best_assignment = _beam_search_core(
         team, assignment, empty_slots, eligibility, gear_by_slot,
-        beam_width, max_iterations
+        beam_width, max_iterations, support_bonus
     )
     
     return best_assignment, best_damage
