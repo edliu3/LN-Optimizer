@@ -21,6 +21,7 @@ with open(_DATA_FILE, 'r', encoding='utf-8') as f:
     data_content = yaml.safe_load(f)
 
 support_bonus = data_content.get('support_bonus', None)
+nh_nebris_ratio_multiplier = data_content.get('nh_nebris_ratio_multiplier', None)
 if support_bonus is None:
     print("\n" + "=" * 70)
     print("SUPPORT BONUS CONFIGURATION")
@@ -99,8 +100,10 @@ if support_bonus is None:
 
 roster, gear_pool, support_bonus = _load_data(_DATA_FILE)
 
-# Set global support bonus in config
+# Set global values in config
 config.set_support_bonus(support_bonus)
+if nh_nebris_ratio_multiplier is not None:
+    config.set_nh_nebris_ratio_multiplier(nh_nebris_ratio_multiplier)
 
 # Display current support bonus
 print(f"\nCurrent support bonus: {support_bonus:.2f}x ({(support_bonus*100+100):.0f}% increase)")

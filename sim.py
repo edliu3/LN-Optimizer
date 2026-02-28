@@ -52,7 +52,7 @@ def cached_calculate_damage_stats(char_name, char_atk, char_damage_type, char_ra
     # Handle special character cases
     ratio = char_ratio
     if char_name == "NH Nebris":
-        ratio = 0.2 * buff_count
+        ratio = char_ratio + (config.NH_NEBRIS_RATIO_MULTIPLIER * buff_count)
     
     return atk, damage_type_buff, ratio
 

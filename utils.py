@@ -4,6 +4,7 @@ Utility functions to reduce code duplication across the codebase.
 
 from typing import Dict, List, Set, Tuple
 from copy import deepcopy
+import config
 
 
 def get_unique_base_characters(team):
@@ -91,7 +92,7 @@ def calculate_damage_stats(char, team_buffs):
     # Handle special character cases
     ratio = char.ratio_per_hit
     if char.name == "NH Nebris":
-        ratio = 0.2 * team_buffs.get('buff_count', 0)
+        ratio = char.ratio_per_hit + (config.NH_NEBRIS_RATIO_MULTIPLIER * team_buffs.get('buff_count', 0))
     
     return atk, damage_type_buff, ratio
 

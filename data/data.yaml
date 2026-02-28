@@ -26,6 +26,7 @@
 
 
 support_bonus: 4.0
+nh_nebris_ratio_multiplier: 0.2  # Magic number for NH Nebris ratio_per_hit calculation
 roster:
 
   # ── BUFFERS (hits: 0 means pure buffer) ────────────────────────────────────
@@ -238,7 +239,7 @@ roster:
     damage_type: ATK
     atk: 796
     crit_dmg: 0.75
-    ratio_per_hit: 2.2 # Will be recalculated with team buffs
+    ratio_per_hit: 0.4 # Base ratio, will be increased by buffs according to NH_NEBRIS_RATIO_MULTIPLIER
     hits: 3
 
   - name: "POV Lathel"
