@@ -25,9 +25,11 @@ pip install pyyaml numpy matplotlib
 ├── utils.py           # Shared helpers (buff calculation, rotation logic)
 ├── visualization.py   # Console output + HTML report generation
 ├── config.py          # Global config (support_bonus)
+├── reports/
+|  └── report.html     # HTML report generated after optimization
 └── data/
-    ├── data.py        # YAML loader
-    └── data.yaml      # Your roster and gear pool ← edit this
+   ├── data.py         # YAML loader
+   └── data.yaml       # Your roster and gear pool ← edit this
 ```
 
 ---
@@ -84,7 +86,7 @@ Changes the stored support bonus without re-running optimization.
 
 ## Output
 
-After optimization completes, the tool prints results to the console and generates an HTML report in `reports/`. The report includes:
+After optimization completes, the tool prints results to the console and generates an HTML report in `reports/` (next to main.py, created automatically if it doesn't exist). The report includes:
 
 - Total damage and chain count
 - Team composition and attack rotation

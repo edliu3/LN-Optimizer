@@ -3,7 +3,6 @@ import heapq
 import numpy as np
 from functools import lru_cache
 import hashlib
-import time
 from utils import determine_prefilter_k, get_unique_base_characters, organize_gear_by_slot, calculate_damage_stats, calculate_crit_multiplier, initialize_gear_assignment, get_eligible_gear_for_character, get_attackers_and_buffers, calculate_chain_multiplier, calculate_team_buffs
 from character import Character
 import random
