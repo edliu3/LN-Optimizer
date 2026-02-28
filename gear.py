@@ -136,8 +136,29 @@ class Gear:
             shorthands = ", ".join(k.upper() for k in cls._PRESETS if len(k) <= 4)
             raise ValueError(f"Unknown preset '{preset}'. Valid shorthands: {shorthands}")
         name, slot, primary_stats = cls._PRESETS[key]
+        
+        # Create descriptive name with secondary stats
+        base_name = name + " UR" + str(rank) + "+" + str(refine_level)
+        if secondary_stats:
+            # Map full stat names to shorthand abbreviations
+            stat_shorthand = {
+                "flat_atk": "atk",
+                "flat_matk": "matk", 
+                "atk_percent": "atk%",
+                "matk_percent": "matk%",
+                "flat_hp": "hp",
+                "hp_percent": "hp%",
+                "crit_rate": "crate",
+                "crit_dmg": "cdmg"
+            }
+            shorthand_stats = [stat_shorthand.get(stat, stat) for stat in secondary_stats]
+            stat_suffix = "_" + "_".join(shorthand_stats)
+            full_name = base_name + stat_suffix
+        else:
+            full_name = base_name
+        
         return cls.from_rarity(
-            name=name+ " UR" + str(rank) + "+" + str(refine_level),
+            name=full_name,
             slot=slot,
             rarity="UR",
             rank=rank,
@@ -195,6 +216,33 @@ class Gear:
         if exclusive_for is not None and rank != 5:
             raise ValueError(f"Exclusive gear must be rank 5 (EX); got rank={rank}")
 
+        # Create descriptive name with secondary stats if not already included
+        if secondary_stats:
+            # Check if name already contains any secondary stat suffix
+            has_suffix = any("_" + stat in name for stat in secondary_stats)
+            
+            # Also check for shorthand versions
+            stat_shorthand = {
+                "flat_atk": "atk",
+                "flat_matk": "matk", 
+                "atk_percent": "atk%",
+                "matk_percent": "matk%",
+                "flat_hp": "hp",
+                "hp_percent": "hp%",
+                "crit_rate": "crate",
+                "crit_dmg": "cdmg"
+            }
+            has_shorthand_suffix = any("_" + stat_shorthand.get(stat, stat) in name for stat in secondary_stats)
+            
+            if not has_suffix and not has_shorthand_suffix:
+                shorthand_stats = [stat_shorthand.get(stat, stat) for stat in secondary_stats]
+                stat_suffix = "_" + "_".join(shorthand_stats)
+                full_name = name + stat_suffix
+            else:
+                full_name = name
+        else:
+            full_name = name
+
         key = (rarity, rank)
         if key not in cls._PRIMARY_TABLE:
             raise ValueError(f"No table entry for rarity={rarity}, rank={rank}")
@@ -225,7 +273,7 @@ class Gear:
             stats[stat] = stats.get(stat, 0.0) + value
 
         return cls(
-            name=name,
+            name=full_name,
             slot=slot,
             flat_atk=round(stats.get("flat_atk", 0)),
             flat_matk=round(stats.get("flat_matk", 0)),
