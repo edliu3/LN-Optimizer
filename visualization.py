@@ -8,6 +8,7 @@ import base64
 from io import BytesIO
 from datetime import datetime
 from pathlib import Path
+import config
 
 def format_damage(damage):
     """Format damage number with B/M/K suffixes."""
@@ -108,6 +109,9 @@ def plot_damage_contribution_html(sequence, team_buffs, support_bonus=None):
     Generate horizontal bar chart showing damage contribution by each team member.
     Returns tuple of (base64_image, damage_data)
     """
+    # Use config support_bonus if not provided
+    if support_bonus is None:
+        support_bonus = config.support_bonus
     # Calculate damage for each character
     damage_data = []
     hits_data = _hits_data(sequence, team_buffs, support_bonus)
@@ -185,6 +189,9 @@ def plot_crit_distribution_html(sequence, team_buffs, support_bonus=None):
     Generate crit distribution plot as HTML base64 string.
     Returns tuple of (base64_image, stats_dict)
     """
+    # Use config support_bonus if not provided
+    if support_bonus is None:
+        support_bonus = config.support_bonus
     fracs, full_dmg, crit_rate = simulate_crit_distribution(sequence, team_buffs, support_bonus=support_bonus)
 
     if len(fracs) == 0:
@@ -306,6 +313,9 @@ def generate_html_report(results, data_file_path, output_file=None, support_bonu
         data_file_path: Path to data.yaml file
         output_file: Optional output file path (auto-generated if None)
     """
+    # Use config support_bonus if not provided
+    if support_bonus is None:
+        support_bonus = config.support_bonus
     if output_file is None:
         timestamp = datetime.now().strftime("%Y%m%d")
         max_damage = results[0]['damage']

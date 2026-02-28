@@ -1,6 +1,7 @@
 import yaml
 from pathlib import Path
 
+import config
 from gear import Gear
 from character import Character
 from sim import (
@@ -98,6 +99,9 @@ if support_bonus is None:
 
 roster, gear_pool, support_bonus = _load_data(_DATA_FILE)
 
+# Set global support bonus in config
+config.set_support_bonus(support_bonus)
+
 # Display current support bonus
 print(f"\nCurrent support bonus: {support_bonus:.2f}x ({(support_bonus*100+100):.0f}% increase)")
 
@@ -127,13 +131,12 @@ if mode == "1":
     
     best_assignment, best_damage = adaptive_gear_assignment(
         fixed_team, gear_pool, prefilter_top_k=prefilter_k,
-        max_iterations=500, temperature=100, cooling_rate=0.975,
-        support_bonus=support_bonus
+        max_iterations=500, temperature=100, cooling_rate=0.975
     )
     
     # Get final sequence with BEST rotation (force hill climbing)
     print("  Optimizing final rotation...")
-    _, chain, sequence = evaluate_team_with_gear(fixed_team, best_assignment, support_bonus)
+    _, chain, sequence = evaluate_team_with_gear(fixed_team, best_assignment)
     
     print("\n" + "=" * 70)
     print("RESULTS")
@@ -150,7 +153,7 @@ if mode == "1":
     print("\n" + "=" * 70)
     print("GENERATING HTML REPORT...")
     print("=" * 70)
-    html_file = generate_html_report(results, _DATA_FILE, support_bonus=support_bonus)
+    html_file = generate_html_report(results, _DATA_FILE)
     if html_file:
         print(f"HTML report saved to: {html_file}")
 
@@ -188,8 +191,7 @@ elif mode == "2":
         beam_width=400,
         fixed_core=fixed_core,
         gear_method="adaptive_sa",
-        gear_preset=gear_preset,
-        support_bonus=support_bonus
+        gear_preset=gear_preset
     )
     
     print("\n" + "=" * 70)
@@ -202,7 +204,7 @@ elif mode == "2":
     print("\n" + "=" * 70)
     print("GENERATING HTML REPORT...")
     print("=" * 70)
-    html_file = generate_html_report(results, _DATA_FILE, support_bonus=support_bonus)
+    html_file = generate_html_report(results, _DATA_FILE)
     if html_file:
         print(f"HTML report saved to: {html_file}")
 elif mode == "3":
@@ -290,6 +292,7 @@ elif mode == "3":
         
         # Reload data with new support bonus
         roster, gear_pool, support_bonus = _load_data(_DATA_FILE)
+        config.set_support_bonus(support_bonus)
         print(f"Current support bonus: {support_bonus:.2f}x ({(support_bonus*100):.0f}% increase)")
 else:
     print("Invalid choice!")
