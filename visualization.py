@@ -645,6 +645,8 @@ def generate_html_report(results, data_file_path, output_file=None, support_bonu
     
     # Write HTML file
     try:
+        # Ensure reports directory exists
+        output_file.parent.mkdir(parents=True, exist_ok=True)
         with open(output_file, 'w', encoding='utf-8') as f:
             f.write(html_content)
         print(f"HTML report generated: {output_file}")
