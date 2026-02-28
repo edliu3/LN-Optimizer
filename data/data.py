@@ -11,6 +11,7 @@ def _load_data(yaml_path: str):
     -------
     roster : list[Character]
     gear_pool : list[Gear]
+    support_bonus : float or None
     """
     if not Path(yaml_path).exists():
         raise FileNotFoundError(
@@ -95,5 +96,6 @@ def _load_data(yaml_path: str):
             label = entry.get("name") or entry.get("preset") or f"entry #{i}"
             raise ValueError(f"gear_pool entry '{label}': {exc}") from exc
 
+    support_bonus = data.get("support_bonus", None)
     print(f"Loaded {len(roster_out)} characters and {len(gear_out)} gear pieces from '{yaml_path}'")
-    return roster_out, gear_out
+    return roster_out, gear_out, support_bonus

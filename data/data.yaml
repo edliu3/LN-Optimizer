@@ -24,6 +24,8 @@
 #                                     matk_percent, crit_dmg, exclusive_for
 # =============================================================================
 
+
+support_bonus: 4.0
 roster:
 
   # ── BUFFERS (hits: 0 means pure buffer) ────────────────────────────────────
@@ -98,7 +100,7 @@ roster:
   - name: "H Lathel"
     damage_type: ATK
     buffs:
-      - ATK%: 0.8
+      - ATK%: 0.9
       - ATK%: 0.6
 
   # - name: "RRH Rou"
@@ -349,6 +351,12 @@ gear_pool:
     crit_dmg: 0.18
     exclusive_for: "Nebris"
 
+  - name: "Blade UR12"
+    slot: weapon
+    flat_atk: 82
+    atk_percent: 1.0024
+    exclusive_for: "Blade"
+
   - name: "FH claw"
     slot: weapon
     rarity: UR
@@ -515,6 +523,17 @@ gear_pool:
     secondary_stats:
       - atk_percent
       - crit_dmg
+
+  - name: "UR4 18h"
+    slot: head
+    rarity: UR
+    rank: 4
+    refine: 9
+    secondary_stats:
+      - crit_dmg
+      - atk_percent
+      - crit_dmg
+
 
   - name: "UR4 19crown"
     slot: head

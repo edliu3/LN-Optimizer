@@ -26,7 +26,7 @@ def get_crit_summary(team, team_buffs):
     for char in team:
         personal = sum(v for btype, v in char.buffs if btype == "crit_rate")
         rows.append((char.name, personal))
-    team_total = min(team_buffs.get("crit_rate", 0), 1.0)
+    team_total = min(team_buffs.get("crit_rate", 0) + 0.1, 1.0)
     return rows, team_total
 
 
@@ -48,75 +48,13 @@ def print_crit_summary(team, team_buffs):
     print(f"  {'TEAM TOTAL (capped at 100%)':<30} {team_total*100:>20.1f}%")
 
 
-def plot_crit_distribution(sequence, team_buffs):
-    """
-    Simulate crit outcomes and display:
-      • A histogram of total damage as % of full-crit damage
-      • Vertical threshold lines at 70 / 80 / 90 %
-      • Probability annotations for each threshold
-    """
-    fracs, full_dmg, crit_rate = simulate_crit_distribution(sequence, team_buffs)
-
-    if len(fracs) == 0:
-        print("  (No attackers in sequence – skipping distribution plot)")
-        return
-
-    pct = fracs * 100  # express as percentages
-
-    fig, ax = plt.subplots(figsize=(9, 5))
-    ax.hist(pct, bins=80, color="#4a90d9", edgecolor="white", linewidth=0.3, alpha=0.85, density=True)
-
-    thresholds = [70, 80, 90]
-    colours    = ["#e74c3c", "#e67e22", "#2ecc71"]
-    for thresh, col in zip(thresholds, colours):
-        prob = (pct >= thresh).mean() * 100
-        dmg_at_thresh = full_dmg * (thresh / 100)
-        dmg_str = format_damage(dmg_at_thresh)
-        ax.axvline(thresh, color=col, linewidth=1.8, linestyle="--")
-        ax.text(thresh + 0.3, ax.get_ylim()[1] * 0.97,
-                f"≥{thresh}%\n{prob:.1f}% chance\n{dmg_str} dmg",
-                color=col, fontsize=8.5, va="top", fontweight="bold")
-
-    ax.set_xlabel("Damage as % of Full Crit Damage", fontsize=11)
-    ax.set_ylabel("Probability Density", fontsize=11)
-    ax.set_title(
-        f"Crit Damage Distribution  –  Team Crit Rate: {crit_rate*100:.1f}%"
-        + (f"  | Max: {format_damage(full_dmg)}"),
-        fontsize=12, fontweight="bold"
-    )
-    ax.xaxis.set_major_formatter(mticker.PercentFormatter())
-    ax.set_xlim(max(0, pct.min() - 2), 102)
-
-    # Annotate median & expected value
-    median_pct = float(np.median(pct))
-    mean_pct   = float(np.mean(pct))
-    ax.axvline(median_pct, color="white", linewidth=1.2, linestyle=":")
-    ax.text(median_pct - 0.5, ax.get_ylim()[1] * 0.55,
-            f"Median\n{median_pct:.1f}%",
-            color="white", fontsize=8, ha="right")
-
-    fig.tight_layout()
-    print(f"\n  [Distribution stats]  "
-          f"Mean: {mean_pct:.1f}%  |  Median: {median_pct:.1f}%  |  "
-          f"P(≥90%): {(pct>=90).mean()*100:.1f}%  |  "
-          f"P(≥80%): {(pct>=80).mean()*100:.1f}%  |  "
-          f"P(≥70%): {(pct>=70).mean()*100:.1f}%")
-    
-    # Calculate and display full damage context for percentiles
-    p90_dmg = full_dmg * 0.90
-    p80_dmg = full_dmg * 0.80  
-    p70_dmg = full_dmg * 0.70
-    print(f"  [Full damage context]  "
-          f"Full: {full_dmg:,.0f}  |  P90: {p90_dmg:,.0f}  |  P80: {p80_dmg:,.0f}  |  P70: {p70_dmg:,.0f}")
-
-
 def print_results(results):
     for idx, result in enumerate(results):
         print(f"\n{'='*70}")
         print(f"TEAM #{idx+1}")
         print(f"{'='*70}")
         print(f"Damage: {result['damage']:,.0f}")
-        print(f"Chain: {result['chain']:.1f}")
+        print(f"Chain Count: {result['chain']:.1f}")
         print(f"\nTeam: {', '.join(c.name for c in result['team'])}")
         print(f"\nRotation: {' → '.join(c.name for c in result['sequence'])}")
         
@@ -163,18 +101,16 @@ def print_results(results):
         # ── Crit rate summary + probability distribution ──────────────────────
         team_buffs = calculate_team_buffs(result['team'])
         print_crit_summary(result['team'], team_buffs)
-        print(f"\n  Generating crit damage distribution...")
-        plot_crit_distribution(result['sequence'], team_buffs)
 
 
-def plot_damage_contribution_html(sequence, team_buffs):
+def plot_damage_contribution_html(sequence, team_buffs, support_bonus=None):
     """
     Generate horizontal bar chart showing damage contribution by each team member.
     Returns tuple of (base64_image, damage_data)
     """
     # Calculate damage for each character
     damage_data = []
-    hits_data = _hits_data(sequence, team_buffs)
+    hits_data = _hits_data(sequence, team_buffs, support_bonus)
 
     for char in sequence:
         if char.hits > 0:  # Only include characters that deal damage
@@ -244,12 +180,12 @@ def plot_damage_contribution_html(sequence, team_buffs):
     return image_base64, damage_data
 
 
-def plot_crit_distribution_html(sequence, team_buffs):
+def plot_crit_distribution_html(sequence, team_buffs, support_bonus=None):
     """
     Generate crit distribution plot as HTML base64 string.
     Returns tuple of (base64_image, stats_dict)
     """
-    fracs, full_dmg, crit_rate = simulate_crit_distribution(sequence, team_buffs)
+    fracs, full_dmg, crit_rate = simulate_crit_distribution(sequence, team_buffs, support_bonus=support_bonus)
 
     if len(fracs) == 0:
         return None, {}
@@ -318,6 +254,9 @@ def format_crit_summary_html(team, team_buffs):
     """Generate HTML table for crit rate summary."""
     rows, team_total = get_crit_summary(team, team_buffs)
     
+    # Build character lookup dict for O(1) access instead of O(n²) search
+    char_by_name = {c.name: c for c in team}
+    
     html_content = """
     <div class="crit-summary">
         <h3>CRIT RATE SUMMARY</h3>
@@ -332,7 +271,7 @@ def format_crit_summary_html(team, team_buffs):
     """
     
     for name, rate in rows:
-        char = next(c for c in team if c.name == name)
+        char = char_by_name[name]  # O(1) lookup instead of O(n) search
         temp_cr = char.temp_buffs.get("crit_rate", 0) / 2
         display = f"{rate*100/2:.1f}%  (+{temp_cr*100/2:.1f}% self)" if temp_cr > 0 else f"{rate*100/2:.1f}%"
         if rate > 0 or temp_cr > 0:
@@ -358,7 +297,7 @@ def format_crit_summary_html(team, team_buffs):
     return html_content
 
 
-def generate_html_report(results, data_file_path, output_file=None):
+def generate_html_report(results, data_file_path, output_file=None, support_bonus=None):
     """
     Generate comprehensive HTML report with simulation inputs and outputs.
     
@@ -561,7 +500,7 @@ def generate_html_report(results, data_file_path, output_file=None):
                 </div>
                 <div class="stat-card">
                     <div class="stat-value">{result['chain']:.1f}</div>
-                    <div class="stat-label">Chain Multiplier</div>
+                    <div class="stat-label">Chain Count</div>
                 </div>
             </div>
             
@@ -574,9 +513,11 @@ def generate_html_report(results, data_file_path, output_file=None):
             <h3>Damage Contribution by Team Member</h3>
         """
         
-        # Add damage contribution chart
+        # Compute team_buffs once and reuse for all operations
         team_buffs = calculate_team_buffs(result['team'])
-        damage_plot_base64, damage_data = plot_damage_contribution_html(result['sequence'], team_buffs)
+        
+        # Add damage contribution chart
+        damage_plot_base64, damage_data = plot_damage_contribution_html(result['sequence'], team_buffs, support_bonus)
         
         if damage_plot_base64:
             html_content += f"""
@@ -636,12 +577,11 @@ def generate_html_report(results, data_file_path, output_file=None):
                     html_content += "</div>"
         
         # Add crit analysis
-        team_buffs = calculate_team_buffs(result['team'])
         html_content += format_crit_summary_html(result['team'], team_buffs)
         
         # Add plot
         html_content += "<h3>Crit Damage Distribution</h3>"
-        plot_base64, plot_stats = plot_crit_distribution_html(result['sequence'], team_buffs)
+        plot_base64, plot_stats = plot_crit_distribution_html(result['sequence'], team_buffs, support_bonus)
         
         if plot_base64:
             html_content += f"""
@@ -651,37 +591,22 @@ def generate_html_report(results, data_file_path, output_file=None):
             """
             
             if plot_stats:
-                html_content += """
+                html_content += f"""
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="stat-value">%.1f%%</div>
+                        <div class="stat-value">{format_damage(plot_stats['full_dmg'] * plot_stats['mean'] / 100)}</div>
                         <div class="stat-label">Mean Damage</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-value">%.1f%%</div>
+                        <div class="stat-value">{format_damage(plot_stats['full_dmg'] * plot_stats['median'] / 100)}</div>
                         <div class="stat-label">Median Damage</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-value">%.1f%%</div>
-                        <div class="stat-label">P(≥90%%)</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">%.1f%%</div>
-                        <div class="stat-label">P(≥80%%)</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">%.1f%%</div>
-                        <div class="stat-label">P(≥70%%)</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value">%s</div>
+                        <div class="stat-value">{format_damage(plot_stats['full_dmg'])}</div>
                         <div class="stat-label">Full Damage</div>
                     </div>
                 </div>
-                """ % (
-                    plot_stats['mean'], plot_stats['median'], plot_stats['p90'], 
-                    plot_stats['p80'], plot_stats['p70'], format_damage(plot_stats['full_dmg'])
-                )
+                """
         else:
             html_content += "<p><em>No attackers in sequence – skipping distribution plot</em></p>"
         
