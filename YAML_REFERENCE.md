@@ -53,8 +53,6 @@ These values are for a 'naked' character without gear, but they are hard to stan
 
 ### `buffs` — Team-Wide Buffs
 
-`buffs` is a **list of single-key dicts**. Using a list (rather than a dict) allows the same buff type to appear more than once, and each entry counts as one buff for NH Nebris's ratio calculation.
-
 ```yaml
 buffs:
   - ATK%: 0.6      # +60% ATK to all ATK characters
@@ -70,7 +68,7 @@ buffs:
 
 | Buff type | Effect |
 |---|---|
-| `ATK%` | Adds to the team ATK% multiplier (halved before applying — each buffer contributes 50% of their listed value, representing rotation uptime) |
+| `ATK%` | Adds to the team ATK% multiplier |
 | `MATK%` | Same as ATK% but for MATK characters |
 | `overall` | Stacks additively into the overall damage multiplier |
 | `crit_rate` | Adds to the team crit rate pool |
@@ -85,7 +83,9 @@ buffs:
 
 ### `temp_buffs` — Self-Only Buffs
 
-`temp_buffs` is a plain mapping (dict). These apply only to the character itself and are also halved before use.
+`temp_buffs` are any buffs applied by a costume immediately before attacking (Ex. PoV Lathel gains 50% atk before his 750% of ATK hit). 
+
+These apply only to the character itself and are also halved before use.
 
 ```yaml
 temp_buffs:
@@ -198,7 +198,7 @@ Use this when gear is not a preset but you know its rarity, rank, refine level, 
 
 ### Mode 3: Raw — Pre-Computed Stats
 
-Use this for EX gear that has 3 primary stats, check the refinements window and get the full stats.
+Use this for EX gear that has 3 primary stats, check the refinements window and enter the full stats.
 
 ```yaml
 - name: "Wilhelmina SR15"
@@ -261,7 +261,7 @@ Exclusive gear is automatically pre-assigned before the optimizer runs. It is no
     - atk_percent
     - atk_percent
 
-# ── Custom armor (from_rarity) — note: include primary_stats ─────────────────
+# ── Custom armor (from_rarity) — note: armor can omit primary_stats ───────────
 - name: "IA UR4 armor"
   slot: armor
   rarity: UR
