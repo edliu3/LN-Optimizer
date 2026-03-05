@@ -48,6 +48,7 @@ Each character needs these fields:
 | `hits` | integer | attackers only | Number of hits in the skill |
 | `buffs` | list | optional | Team-wide buffs this character provides (see below) |
 | `temp_buffs` | mapping | optional | Self-only buffs (see below) |
+| `domain` | mapping | optional | Team-wide buffs that don't count for buff_count (see below) |
 
 These values are for a 'naked' character without gear, but they are hard to standardize as they depend on which costume is bonded, total collection bonus %, and potential nodes. Remember to use the gear presets to easily save your current loadouts before data entry.
 
@@ -83,6 +84,22 @@ buffs:
 
 > **ATK%/MATK% halving explained:** Each buffer's contribution is divided by 2 due to 50% pressure from LN mode. If a character provides `ATK%: 0.8`, the team receives `+0.4` to the ATK% multiplier.
 
+### `domain` — Team-Wide Buffs (Excluded from buff_count)
+
+`domain` is a plain mapping (dict) similar to `temp_buffs`. These provide team-wide buffs like regular `buffs`, but **do not count toward NH Nebris's buff_count calculation**. This is used for characters who apply both damage and team buffs (like RL Olivier).
+
+```yaml
+domain:
+  MATK%: 0.6      # +60% MATK to all MATK characters
+  ATK%: 0.5        # +50% ATK to all ATK characters
+  overall: 1.2       # +120% overall damage
+  crit_rate: 0.3     # +30% crit rate
+  crit_dmg: 0.75     # +75% crit damage
+  chain_count: 1    # +1 chain count per hit
+```
+
+**Key difference from `buffs`:** Domain buffs apply to the team but are excluded from NH Nebris's buff_count calculation, making them ideal for hybrid attacker/buffer characters.
+
 ### `temp_buffs` — Self-Only Buffs
 
 `temp_buffs` is a plain mapping (dict). These apply only to the character itself and are also halved before use.
@@ -98,13 +115,23 @@ temp_buffs:
 
 ### Special Characters
 
-**NH Nebris** — `ratio_per_hit` is the base value. The actual value used in damage calculation is `base_value` + (`nh_nebris_ratio_multiplier` × `buff_count`), where `buff_count` is the total number of buff entries across all team members' `buffs` lists.
+**NH Nebris** — `ratio_per_hit` is the base value. The actual value used in damage calculation is `base_value` + (`nh_nebris_ratio_multiplier` × `buff_count`), where `buff_count` is the total number of buff entries across all team members' `buffs` lists. **Note:** `domain` buffs are excluded from this count.
 
 **DS Luvencia** - should have higher `ratio_per_hit` when `chain_count` is a multiple of 3 (NOT IMPLEMENTED).
 
 ### Buffer vs Attacker: Quick Reference
 
 ```yaml
+# Hybrid Attacker/Buffer — with domain buffs
+- name: "RL Olivier"
+  damage_type: MATK
+  atk: 378
+  crit_dmg: 1
+  ratio_per_hit: 0.5
+  hits: 6
+  domain:
+    MATK%: 0.6      # +60% MATK to team (doesn't count for Nebris)
+
 # Pure buffer — no damage stats needed
 - name: "Shrine Granadair"
   damage_type: MATK

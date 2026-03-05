@@ -169,7 +169,8 @@ def evaluate_team_with_gear(team, gear_assignments, support_bonus=None):
             ratio_per_hit=char.ratio_per_hit,
             hits=char.hits,
             buffs=char.buffs.copy(),
-            temp_buffs=char.temp_buffs.copy()
+            temp_buffs=char.temp_buffs.copy(),
+            domain=char.domain.copy()
         )
         
         # Equip gear

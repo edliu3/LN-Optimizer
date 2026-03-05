@@ -58,7 +58,7 @@ roster:
     damage_type: ATK
     buffs:
       - ATK%: 0.8
-      - crit_rate: 0.25
+      - crit_rate: 0.5
 
   - name: "Arines"
     damage_type: MATK
@@ -102,7 +102,7 @@ roster:
     damage_type: ATK
     buffs:
       - ATK%: 0.9
-      - ATK%: 0.6
+      - ATK%: 0.7
 
   # - name: "RRH Rou"
     # damage_type: ATK
@@ -114,56 +114,63 @@ roster:
   # ── ATTACKERS ──────────────────────────────────────────────────────────────
   - name: "Bride Eclipse"
     damage_type: MATK
-    atk: 565
+    atk: 572
     crit_dmg: 0.642
     ratio_per_hit: 5.5
     hits: 1
 
   - name: "Beach Eclipse"
     damage_type: MATK
-    atk: 565
+    atk: 572
     crit_dmg: 0.642
     ratio_per_hit: 3
     hits: 2
 
   - name: "NoJ Levia"
     damage_type: MATK
-    atk: 520
+    atk: 639
     crit_dmg: 0.75
     ratio_per_hit: 0.8
     hits: 4
 
   - name: "SV Dalvi"
     damage_type: MATK
-    atk: 381
-    crit_dmg: 0.75
+    atk: 800
+    crit_dmg: 1.034
     ratio_per_hit: 0.85
     hits: 4
 
   - name: "SoBC Olstein"
     damage_type: MATK
-    atk: 295
+    atk: 298
     crit_dmg: 0.5
     ratio_per_hit: 0.25
     hits: 7
 
   - name: "NS Liatris"
     damage_type: ATK
-    atk: 873
+    atk: 891
     crit_dmg: 0.75
     ratio_per_hit: 0.35
     hits: 5
 
   - name: "RS Liatris"
     damage_type: ATK
-    atk: 873
+    atk: 891
     crit_dmg: 0.75
-    ratio_per_hit: 0.3
+    ratio_per_hit: 0.30
     hits: 5
+
+  # - name: "Maid Liatris"
+    # damage_type: ATK
+    # atk: 891
+    # crit_dmg: 0.75
+    # ratio_per_hit: 4
+    # hits: 1
 
   - name: "WPQ Wilhelmina"
     damage_type: ATK
-    atk: 602
+    atk: 617
     crit_dmg: 1.027
     ratio_per_hit: 0.45
     hits: 9
@@ -172,49 +179,49 @@ roster:
 
   - name: "IM Wilhelmina"
     damage_type: ATK
-    atk: 602
+    atk: 617
     crit_dmg: 1.027
     ratio_per_hit: 0.6
     hits: 12
 
   - name: "FQ Wilhelmina"
     damage_type: ATK
-    atk: 602
+    atk: 617
     crit_dmg: 1.027
     ratio_per_hit: 1.1
     hits: 6
 
   - name: "DGW Celia"
     damage_type: MATK
-    atk: 628
+    atk: 636
     crit_dmg: 0.5
     ratio_per_hit: 0.39
     hits: 5
 
   - name: "TC Celia"
     damage_type: MATK
-    atk: 628
+    atk: 636
     crit_dmg: 0.5
     ratio_per_hit: 0.18
     hits: 7
 
   - name: "RH Zenith"
     damage_type: ATK
-    atk: 308
+    atk: 317
     crit_dmg: 0.5
     ratio_per_hit: 0.25
     hits: 6
 
   - name: "PG Zenith"
     damage_type: ATK
-    atk: 308
+    atk: 317
     crit_dmg: 0.5
     ratio_per_hit: 0.5
     hits: 6
 
   - name: "DS Luvencia"
     damage_type: ATK
-    atk: 623
+    atk: 642
     crit_dmg: 1
     ratio_per_hit: 0.8
     hits: 8
@@ -228,7 +235,7 @@ roster:
 
   - name: "SC Rou"
     damage_type: ATK
-    atk: 614
+    atk: 632
     crit_dmg: 1.217
     ratio_per_hit: 6
     hits: 1
@@ -237,19 +244,28 @@ roster:
 
   - name: "NH Nebris"
     damage_type: ATK
-    atk: 796
-    crit_dmg: 0.75
-    ratio_per_hit: 0.4 # Base ratio, will be increased by buffs according to NH_NEBRIS_RATIO_MULTIPLIER
+    atk: 1004
+    crit_dmg: 0.831
+    ratio_per_hit: 0.4 # Base ratio, will be increased by buffs * NH_NEBRIS_RATIO_MULTIPLIER
     hits: 3
 
   - name: "POV Lathel"
     damage_type: ATK
-    atk: 559
+    atk: 613
     crit_dmg: 0.5
     ratio_per_hit: 7.5
     hits: 1
     temp_buffs:
       ATK%: 0.5
+
+  - name: "RL Olivier"
+    damage_type: MATK
+    atk: 378
+    crit_dmg: 1
+    ratio_per_hit: 0.5
+    hits: 6
+    domain:
+      MATK%: 0.6
 
   # - name: "MRC Jayden"
     # damage_type: MATK

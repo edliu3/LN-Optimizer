@@ -1,5 +1,5 @@
 class Character:
-    def __init__(self, name, damage_type, atk, crit_dmg, ratio_per_hit, hits, buffs=None, temp_buffs=None):
+    def __init__(self, name, damage_type, atk, crit_dmg, ratio_per_hit, hits, buffs=None, temp_buffs=None, domain=None):
         self.name = name
         self.damage_type = damage_type
         self.base_atk = atk  # Store base stats separately
@@ -8,6 +8,7 @@ class Character:
         self.crit_dmg = crit_dmg  # Will be recalculated properly in _recalculate_stats
         self.buffs = buffs if buffs is not None else []       # list of (buff_type, value) tuples
         self.temp_buffs = temp_buffs if temp_buffs is not None else {}  # dict; per-character, no duplicates
+        self.domain = domain if domain is not None else {}  # dict; domain buffs that don't count for buff_count
         self.ratio_per_hit = ratio_per_hit
         self.hits = hits
         self.equipped_gear = {
@@ -87,7 +88,7 @@ class Character:
         """Create a deep copy of this character."""
         new_char = Character(
             self.name, self.damage_type, self.base_atk, self.base_crit_dmg,
-            self.ratio_per_hit, self.hits, list(self.buffs), dict(self.temp_buffs)
+            self.ratio_per_hit, self.hits, list(self.buffs), dict(self.temp_buffs), dict(self.domain)
         )
         # Note: Gear objects are immutable, so we can safely reference them
         for slot, gear in self.equipped_gear.items():

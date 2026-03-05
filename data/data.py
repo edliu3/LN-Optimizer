@@ -39,6 +39,7 @@ def _load_data(yaml_path: str):
             hits          = entry.get("hits", 0),
             buffs         = buffs,
             temp_buffs    = entry.get("temp_buffs") or {},
+            domain        = entry.get("domain") or {},
         )
         roster_out.append(char)
 
