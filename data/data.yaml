@@ -354,24 +354,23 @@ gear_pool:
   # Exclusive gear is locked to one base character (last word in their name).
   # Remove or set exclusive_for to null to make a piece available to everyone.
 
-  - name: "Wilhelmina SR15"
+  - name: "Wilhelmina SR18"
     slot: weapon
-    flat_atk: 62
-    atk_percent: 0.4858   # 0.4228 + 0.063
+    flat_atk: 67
+    atk_percent: 0.5212
     crit_dmg: 0.126
     exclusive_for: "Wilhelmina"
 
   - name: "Nebris UR21"
     slot: weapon
-    flat_atk: 104
-    atk_percent: 1.2436
-    crit_dmg: 0.18
+    flat_atk: 12
+    atk_percent: 2.0372
     exclusive_for: "Nebris"
 
-  - name: "Blade UR12"
+  - name: "Blade UR16"
     slot: weapon
-    flat_atk: 82
-    atk_percent: 1.0024
+    flat_atk: 92
+    atk_percent: 1.0696
     exclusive_for: "Blade"
 
   - name: "FH claw"
@@ -386,6 +385,28 @@ gear_pool:
       - crit_dmg
       - matk_percent
 
+  - name: "PJ UR15"
+    slot: weapon
+    rarity: UR
+    rank: 4
+    refine: 15
+    primary_stats:
+      - flat_atk
+      - flat_atk
+    secondary_stats:
+      - flat_atk
+
+  - name: "DFB UR12"
+    slot: weapon
+    rarity: UR
+    rank: 3
+    refine: 12
+    primary_stats:
+      - flat_matk
+      - flat_matk
+    secondary_stats:
+      - crit_dmg
+
   - preset: EoD
     rank: 3
     refine: 15
@@ -394,7 +415,8 @@ gear_pool:
     rank: 4
     refine: 20
     secondary_stats:
-      - flat_matk
+      - crit_dmg
+      - matk_percent
       - matk_percent
     
   - preset: TGF
@@ -402,6 +424,12 @@ gear_pool:
     refine: 12
     secondary_stats:
       - flat_matk
+      - crit_dmg
+    
+  - preset: HoT
+    rank: 4
+    refine: 18
+    secondary_stats:
       - crit_dmg
     
   - preset: HoT
@@ -471,6 +499,23 @@ gear_pool:
     secondary_stats:
       - crit_dmg
 
+  - name: "IGA UR3+18"
+    slot: armor
+    rarity: UR
+    rank: 3
+    refine: 9
+    secondary_stats:
+      - crit_dmg
+      - crit_dmg
+
+  - name: "IA UR4+19"
+    slot: armor
+    rarity: UR
+    rank: 4
+    refine: 9
+    secondary_stats:
+      - atk_percent
+
   - name: "IA UR4+18"
     slot: armor
     rarity: UR
@@ -486,7 +531,8 @@ gear_pool:
     rank: 4
     refine: 9
     secondary_stats:
-      - crit_dmg
+      - atk_percent
+      - flat_atk
       - atk_percent
 
   - name: "IA UR3+18"
@@ -515,7 +561,7 @@ gear_pool:
       - flat_atk
       - atk_percent
 
-  - name: "IA UR2+12"
+  - name: "IA UR2+16"
     slot: armor
     rarity: UR
     rank: 2
@@ -540,17 +586,6 @@ gear_pool:
     secondary_stats:
       - atk_percent
       - crit_dmg
-
-  - name: "UR4 18h"
-    slot: head
-    rarity: UR
-    rank: 4
-    refine: 9
-    secondary_stats:
-      - crit_dmg
-      - atk_percent
-      - crit_dmg
-
 
   - name: "UR4 19crown"
     slot: head
@@ -622,14 +657,30 @@ gear_pool:
       - matk_percent
       - crit_dmg
 
-  - name: "UR4 17h"
-    slot: head
-    crit_dmg: 0.36
-
-  - name: "UR3 18h"
+  - name: "UR4 18h"
     slot: head
     rarity: UR
-    rank: 3
+    rank: 4
+    refine: 9
+    secondary_stats:
+      - crit_dmg
+      - atk_percent
+      - crit_dmg
+
+  - name: "UR4 17h"
+    slot: head
+    rarity: UR
+    rank: 4
+    refine: 9
+    secondary_stats:
+      - crit_dmg
+      - crit_dmg
+      - crit_dmg
+
+  - name: "UR2 18h"
+    slot: head
+    rarity: UR
+    rank: 2
     refine: 9
     secondary_stats:
       - flat_atk
@@ -642,14 +693,6 @@ gear_pool:
     secondary_stats:
       - atk_percent
       - atk_percent
-
-  - name: "UR2 10h"
-    slot: head
-    rarity: UR
-    rank: 2
-    refine: 9
-    secondary_stats:
-      - flat_atk
 
   - name: "UR2 9h"
     slot: head
@@ -697,7 +740,7 @@ gear_pool:
 
   - preset: VT
     rank: 4
-    refine: 18
+    refine: 20
     secondary_stats:
       - atk_percent
       - atk_percent
@@ -731,16 +774,23 @@ gear_pool:
 
   - preset: VT
     rank: 3
-    refine: 11
+    refine: 12
     secondary_stats:
+      - flat_atk
+      - flat_matk
+
+  - preset: VT
+    rank: 3
+    refine: 12
+    secondary_stats:
+      - flat_atk
       - crit_dmg
 
   - preset: VT
     rank: 3
     refine: 11
     secondary_stats:
-      - flat_atk
-      - flat_matk
+      - crit_dmg
 
   - preset: VT
     rank: 3
@@ -768,7 +818,48 @@ gear_pool:
       - matk_percent
 
   # ── GLOVES ──────────────────────────────────────────────────────────────────
-  # MATK gloves — Shackle of Treachery (matk_percent × 2)
+  - preset: DSP
+    rank: 4
+    refine: 19
+
+  - preset: DSP
+    rank: 3
+    refine: 12
+    secondary_stats:
+      - flat_matk
+      - matk_percent
+
+  - preset: DSP
+    rank: 3
+    refine: 12
+
+  - preset: SoT
+    rank: 4
+    refine: 19
+    secondary_stats:
+      - crit_dmg
+      - matk_percent
+      - matk_percent
+
+  - preset: SoT
+    rank: 3
+    refine: 15
+    secondary_stats:
+      - crit_dmg
+      - crit_dmg
+
+  - preset: SoT
+    rank: 3
+    refine: 15
+    secondary_stats:
+      - flat_matk
+
+  - preset: SoT
+    rank: 3
+    refine: 11
+    secondary_stats:
+      - crit_dmg
+      - crit_dmg
 
   - name: "RoF UR4+12"
     slot: glove
@@ -781,45 +872,6 @@ gear_pool:
     secondary_stats:
       - crit_dmg
 
-  - preset: DSP
-    rank: 4
-    refine: 19
-
-  - preset: DSP
-    rank: 3
-    refine: 12
-    secondary_stats:
-      - flat_matk
-      - matk_percent
-
-  - preset: SoT
-    rank: 4
-    refine: 19
-    secondary_stats:
-      - crit_dmg
-      - matk_percent
-
-  - preset: SoT
-    rank: 3
-    refine: 15
-    secondary_stats:
-      - crit_dmg
-      - crit_dmg
-
-  - preset: SoT
-    rank: 3
-    refine: 11
-    secondary_stats:
-      - crit_dmg
-      - crit_dmg
-
-  - preset: SoT
-    rank: 3
-    refine: 9
-    secondary_stats:
-      - flat_matk
-
-  # ATK gloves — God-King's Silver Arm (atk_percent × 2)
   - preset: PA
     rank: 4
     refine: 19
@@ -844,10 +896,10 @@ gear_pool:
 
   - preset: GKSA
     rank: 4
-    refine: 18
+    refine: 20
     secondary_stats:
-      - crit_dmg
-      - flat_atk
+      - atk_percent
+      - atk_percent
 
   - preset: GKSA
     rank: 3
@@ -859,12 +911,6 @@ gear_pool:
   - preset: GKSA
     rank: 3
     refine: 14
-    secondary_stats:
-      - crit_dmg
-
-  - preset: GKSA
-    rank: 3
-    refine: 12
     secondary_stats:
       - crit_dmg
 
@@ -894,3 +940,14 @@ gear_pool:
   - preset: GKSA
     rank: 3
     refine: 7
+
+  - name: "Rebellion UR3+14"
+    slot: glove
+    rarity: UR
+    rank: 3
+    refine: 14
+    primary_stats:
+      - crit_rate
+      - atk_percent
+    secondary_stats:
+      - crit_dmg

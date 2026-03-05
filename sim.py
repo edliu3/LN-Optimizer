@@ -78,10 +78,11 @@ def precompute_gear_eligibility(gear_pool, base_characters):
     return eligibility
 
 def calculate_single_hit(char, team_buffs, support_bonus=None):
-    """Calculates the damage of a single hit including all buffs and chain count."""
+    """Calculates damage of a single hit including all buffs and chain count."""
     # Use config support_bonus if not provided
     if support_bonus is None:
         support_bonus = config.support_bonus
+    
     # Use cached calculations
     char_key = (char.name, char.atk, char.damage_type, char.ratio_per_hit)
     buffs_key = tuple(sorted(team_buffs.items()))
@@ -96,7 +97,7 @@ def calculate_single_hit(char, team_buffs, support_bonus=None):
         temp_atk_buff, temp_matk_buff, buff_count
     )
     
-    crit_key = (team_buffs.get('crit_dmg', 0),)  # Just pass the crit_dmg value
+    crit_key = (team_buffs.get('crit_dmg', 0),)  # Just pass crit_dmg value
     crit_mult = cached_calculate_crit_multiplier(char.crit_dmg, crit_key)
     
     total_single_hit = round(damage_type_buff * atk) * crit_mult * (team_buffs.get('overall', 1)) * ratio
@@ -108,18 +109,32 @@ def calculate_single_hit(char, team_buffs, support_bonus=None):
     return floor(total_single_hit)
 
 def calculate_actual_damage(sequence, current_team_buffs, support_bonus=None):
-    """Calculates the total damage of a sequence."""
+    """Calculates total damage of a sequence."""
     # Use config support_bonus if not provided
     if support_bonus is None:
         support_bonus = config.support_bonus
     if not sequence:
         return 0, 0
     
+    # Start with base team buffs (no domain)
+    running_buffs = current_team_buffs.copy()
+    
     # Vectorized per-character calculations
     char_data = []
     for char in sequence:
-        single_hit = calculate_single_hit(char, current_team_buffs, support_bonus)
-        chain_mult = calculate_chain_multiplier(current_team_buffs, char.temp_buffs)
+        # Apply this character's domain buffs to running buffs
+        if char.domain:
+            for buff_type, value in char.domain.items():
+                if buff_type == "chain_count" or buff_type == "overall":
+                    running_buffs[buff_type] += value
+                elif running_buffs.get(buff_type, None) is None:
+                    continue
+                else:
+                    running_buffs[buff_type] += value / 2
+        
+        # Calculate damage with updated running buffs
+        single_hit = calculate_single_hit(char, running_buffs, support_bonus)
+        chain_mult = calculate_chain_multiplier(running_buffs, char.temp_buffs)
         char_data.append((char.hits, single_hit, chain_mult))
     
     # Vectorized batch processing
@@ -127,7 +142,7 @@ def calculate_actual_damage(sequence, current_team_buffs, support_bonus=None):
     hits = np.array(hits)
     single_hits = np.array(single_hits)
     chain_mults = np.array(chain_mults)
-    
+
     # Use NumPy for cumulative operations
     total_damage = 0
     current_chain = 0

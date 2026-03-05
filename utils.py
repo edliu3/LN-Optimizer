@@ -67,15 +67,8 @@ def calculate_team_buffs(team):
                 else:
                     team_buffs[buff_type] += value / 2
         
-        # Process domain buffs (don't count for buff_count)
-        if char.domain:
-            for buff_type, value in char.domain.items():
-                if buff_type == "chain_count" or buff_type == "overall":
-                    team_buffs[buff_type] += value
-                elif team_buffs.get(buff_type, None) is None:
-                    continue
-                else:
-                    team_buffs[buff_type] += value / 2
+        # Domain buffs are now handled dynamically in calculate_single_hit
+        # to apply only during character's turn
     
     return team_buffs
 
