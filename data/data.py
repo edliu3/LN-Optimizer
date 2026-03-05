@@ -1,7 +1,22 @@
 from pathlib import Path
 import yaml
-from character import Character
+from character.character import Character
 from gear import Gear
+import csv
+
+def load_character_stats(csv_path):
+    """Load character stats from CSV file."""
+    character_stats = {}
+    
+    with open(csv_path, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            character_stats[row['enName']] = {
+                'base_atk': int(row['maxlevel_atk']) if row['maxlevel_atk'] else 0,
+                'engraving_atk': float(row['engraving_atk']) if row['engraving_atk'] else 0.0
+            }
+    
+    return character_stats
 
 def _load_data(yaml_path: str):
     """
@@ -23,25 +38,82 @@ def _load_data(yaml_path: str):
     with open(yaml_path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
+    # Load character stats from CSV
+    csv_path = Path(yaml_path).parent.parent / "character" / "character_stats.csv"
+    char_stats = load_character_stats(csv_path)
+
     # ── Build roster ──────────────────────────────────────────────────────────
     roster_out = []
     for entry in data.get("roster", []):
-        # buffs: YAML list of single-key dicts → list of (buff_type, value) tuples
-        raw_buffs = entry.get("buffs") or []
-        buffs = [(k, v) for item in raw_buffs for k, v in item.items()]
-
-        char = Character(
-            name          = entry["name"],
-            damage_type   = entry["damage_type"],
-            atk           = entry.get("atk", 0),
-            crit_dmg      = entry.get("crit_dmg", 1),
-            ratio_per_hit = entry.get("ratio_per_hit", 0),
-            hits          = entry.get("hits", 0),
-            buffs         = buffs,
-            temp_buffs    = entry.get("temp_buffs") or {},
-            domain        = entry.get("domain") or {},
-        )
-        roster_out.append(char)
+        # Only process characters that have costumes, but also include base characters without costumes
+        costumes = entry.get("costumes", [])
+        base_character = None
+        
+        if not costumes:
+            # Create base character without costumes if it matches our target
+            base_character = Character(
+                name          = entry['name'],
+                damage_type   = entry.get('damage_type', 'ATK'),
+                atk           = entry.get('atk', 0),
+                crit_dmg      = entry.get('crit_dmg', 0.5),
+                ratio_per_hit = 0,
+                hits          = 0,
+                buffs         = [],
+                temp_buffs    = entry.get('temp_buffs', {}),
+                domain        = entry.get('domain', {}),
+                base_flat_atk = 0,
+                base_atk_percent = 0,
+            )
+            roster_out.append(base_character)
+            continue  # Skip to next character
+        
+        # Get base character stats from CSV
+        base_name = entry['name']
+        base_flat_atk = 0
+        base_atk_percent = 0
+        
+        if base_name in char_stats:
+            base_stats = char_stats[base_name]
+            base_flat_atk = base_stats['engraving_atk'] if entry.get('is_atk_engraved', False) else 0.0
+            yaml_atk = entry.get('atk', 0)
+            if yaml_atk > 0 and (base_stats['base_atk'] + base_flat_atk) > 0:
+                base_atk_percent = (yaml_atk / (base_stats['base_atk'] + base_flat_atk)) - 1
+        
+        # Process costumes only (skip base character)
+        for costume in costumes:
+            costume_name = f"{costume['name']} {entry['name']}"
+            costume_data = {
+                "name": costume_name,
+                "damage_type": costume["damage_type"],
+                "atk": entry.get("atk", 0),  # Use base character's ATK
+                "crit_dmg": entry.get("crit_dmg", 0.5),  # Use base character's crit_dmg
+                "ratio_per_hit": costume.get("ratio_per_hit", 0),
+                "hits": costume.get("hits", 0),
+                "temp_buffs": costume.get("temp_buffs", {}),
+                "domain": entry.get("domain", {}),
+            }
+            
+            # Add costume buffs if present
+            costume_buffs = []
+            if 'buffs' in costume:
+                raw_buffs = costume['buffs']
+                costume_buffs = [(k, v) for item in raw_buffs for k, v in item.items()]
+            
+            # Create costume character with base modifiers
+            costume_char = Character(
+                name          = costume_data["name"],
+                damage_type   = costume_data["damage_type"],
+                atk           = base_stats['base_atk'] if base_name in char_stats else entry.get("atk", 0),
+                crit_dmg      = costume_data["crit_dmg"],
+                ratio_per_hit = costume_data["ratio_per_hit"],
+                hits          = costume_data["hits"],
+                buffs         = costume_buffs,  # Use costume buffs
+                temp_buffs    = costume_data["temp_buffs"],
+                domain        = costume_data["domain"],
+                base_flat_atk = base_flat_atk,
+                base_atk_percent = base_atk_percent,
+            )
+            roster_out.append(costume_char)
 
     # ── Build gear_pool ───────────────────────────────────────────────────────
     # Three construction modes are detected by which keys are present:

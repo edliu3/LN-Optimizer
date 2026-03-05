@@ -1,9 +1,11 @@
 class Character:
-    def __init__(self, name, damage_type, atk, crit_dmg, ratio_per_hit, hits, buffs=None, temp_buffs=None, domain=None):
+    def __init__(self, name, damage_type, atk, crit_dmg, ratio_per_hit, hits, buffs=None, temp_buffs=None, domain=None, base_flat_atk=0, base_atk_percent=0):
         self.name = name
         self.damage_type = damage_type
         self.base_atk = atk  # Store base stats separately
         self.base_crit_dmg = crit_dmg  # Store raw base crit_dmg value
+        self.base_flat_atk = base_flat_atk  # Store base flat ATK from engraving
+        self.base_atk_percent = base_atk_percent  # Store base ATK% multiplier
         self.atk = atk
         self.crit_dmg = crit_dmg  # Will be recalculated properly in _recalculate_stats
         self.buffs = buffs if buffs is not None else []       # list of (buff_type, value) tuples
@@ -57,11 +59,11 @@ class Character:
         self._recalculate_stats()
     
     def _recalculate_stats(self):
-        """Recalculate stats based on base stats + all equipped gear."""
-        # Start with base stats
-        total_flat_atk = self.base_atk if self.damage_type == "ATK" else 0
-        total_flat_matk = self.base_atk if self.damage_type == "MATK" else 0
-        total_atk_percent = 0
+        """Recalculate stats based on base stats + base modifiers + all equipped gear."""
+        # Start with base stats + base modifiers
+        total_flat_atk = (self.base_atk + self.base_flat_atk) if self.damage_type == "ATK" else 0
+        total_flat_matk = (self.base_atk + self.base_flat_atk) if self.damage_type == "MATK" else 0
+        total_atk_percent = self.base_atk_percent  # Start with base ATK% modifier
         total_matk_percent = 0
         total_crit_dmg = self.base_crit_dmg
         
@@ -88,7 +90,8 @@ class Character:
         """Create a deep copy of this character."""
         new_char = Character(
             self.name, self.damage_type, self.base_atk, self.base_crit_dmg,
-            self.ratio_per_hit, self.hits, list(self.buffs), dict(self.temp_buffs), dict(self.domain)
+            self.ratio_per_hit, self.hits, list(self.buffs), dict(self.temp_buffs), dict(self.domain),
+            self.base_flat_atk, self.base_atk_percent
         )
         # Note: Gear objects are immutable, so we can safely reference them
         for slot, gear in self.equipped_gear.items():

@@ -4,7 +4,7 @@ import numpy as np
 from functools import lru_cache
 import hashlib
 from utils import determine_prefilter_k, get_unique_base_characters, organize_gear_by_slot, calculate_damage_stats, calculate_crit_multiplier, initialize_gear_assignment, get_eligible_gear_for_character, get_attackers_and_buffers, calculate_chain_multiplier, calculate_team_buffs
-from character import Character
+from character.character import Character
 import random
 import config
 
@@ -185,7 +185,9 @@ def evaluate_team_with_gear(team, gear_assignments, support_bonus=None):
             hits=char.hits,
             buffs=char.buffs.copy(),
             temp_buffs=char.temp_buffs.copy(),
-            domain=char.domain.copy()
+            domain=char.domain.copy(),
+            base_flat_atk=getattr(char, 'base_flat_atk', 0),
+            base_atk_percent=getattr(char, 'base_atk_percent', 0)
         )
         
         # Equip gear

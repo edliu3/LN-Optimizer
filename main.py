@@ -3,7 +3,7 @@ from pathlib import Path
 
 import config
 from gear import Gear
-from character import Character
+from character.character import Character
 from sim import (
     optimize_team_with_beam_search, 
     adaptive_gear_assignment,
@@ -181,7 +181,7 @@ elif mode == "2":
     print(f"\nUsing Adaptive SA with {gear_preset} preset")
     
     # Define core characters that are almost always optimal
-    core_character_names = ["OM Liberta", "Bride Rafi", "Shrine Granadair"]
+    core_character_names = ["OM Liberta", "Bride Refithea", "Shrine Granadair"]
     fixed_core = [c for c in roster if c.name in core_character_names]
     
     if len(fixed_core) < len(core_character_names):
