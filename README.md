@@ -36,16 +36,43 @@ pip install pyyaml numpy matplotlib
 
 ## Quick Start
 
-1. Edit `data/data.yaml` to reflect your actual characters and gear (see [YAML Reference](YAML_REFERENCE.md)).
-2. Run:
+1. Clone or download this repository:
+
+```bash
+git clone https://github.com/edliu3/LN-Optimizer.git
+cd LN-Optimizer
+```
+
+2. Edit `data/data.yaml` to reflect your actual characters and gear (see [YAML Reference](YAML_REFERENCE.md)).
+
+**Roster Recommendations:**
+- **Essential buffers:** All buffer costumes should be included
+- **Chainers:** Any costumes with high hit count (5+)
+- **Attackers:** Costumes with high total ATK ratio (400%+). Start with your highest damage costumes, add more as you test. Special mention to MAX HP damage type (eg. Nature's Claw Rou).
+- **Skip these to reduce search space (higher chance of better results):**
+   - Attackers dependent on applying debuffs (not applied in Last Night)
+   - Property damage buffers
+   - Low damage / Fixed damage PVP costumes
+   - Pure healers/tanks
+
+**Gear Recommendations:**
+- Add at least 10 pieces of gear for each slot
+- Skip head and armor pieces that don't have CDMG, (M)ATK, or flat (M)ATK substats
+- Cutoff gear by refinement level or rarity to reduce search space
+
+3. Run:
 
 ```bash
 python main.py
 ```
 
-3. On first run you will be prompted to enter your **support bonus** if one is not already saved in `data.yaml`. It is saved automatically for future runs.
+4. On first run you will be prompted to enter your **support bonus** if one is not already saved in `data.yaml`. It is saved automatically for future runs.
 
-4. Choose an optimization mode when prompted.
+5. Choose an optimization mode when prompted.
+
+6. Review the generated HTML report in the `reports/` folder for detailed results and visualizations.
+
+7. Adjust and rerun as needed. Note: optimizer algorithm uses randomness, so results may vary between runs.
 
 ---
 
@@ -53,7 +80,7 @@ python main.py
 
 ### Mode 1 — Fixed Team: Optimize Gear Only
 
-Skips team search entirely and optimizes gear assignments for a predetermined team. Edit the `fixed_team` variable in `main.py` to set your team before running.
+Skips team search entirely and optimizes gear assignments for a predetermined team (default first 20 units in the roster).
 
 **When to use:** You already know which characters you want and just need the best gear distribution.
 
@@ -86,7 +113,7 @@ Changes the stored support bonus without re-running optimization.
 
 ## Output
 
-After optimization completes, the tool prints results to the console and generates an HTML report in `reports/` (next to main.py, created automatically if it doesn't exist). The report includes:
+After optimization completes, the tool prints results to the console and generates an HTML report (see example report [here](reports/example_report.html)) in `reports/`. The report includes:
 
 - Total damage and chain count
 - Team composition and attack rotation

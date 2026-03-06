@@ -36,19 +36,29 @@ You can also update this value by running `main.py` and choosing **Mode 3**.
 
 ## `roster` — Character Entries
 
-Each character needs these fields:
+Each character needs these fields. Enter them as base stats without equipment (create preset, remove gear). For simplicity, atk and matk are combined into the `atk` field.
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `name` | string | ✅ | Full in-game display name including costume prefix (e.g. `"WPQ Wilhelmina"`) |
+| `name` | string | ✅ | Base character name (last word of costume name, e.g. `"Wilhelmina"`) |
+| `atk` | number | ✅ | Base ATK or MATK stat (as listed on Gear screen) |
+| `is_atk_engraved` | boolean | ✅ | Whether character has a maxed ATK engraving (adds 34 base flat ATK/MATK for most characters) |
+| `crit_dmg` | number | ✅ | Base crit damage **as a decimal above 0** — e.g. `0.5` means +50% crit damage (shared across all costumes) |
+| `costumes` | array | ✅ | List of costume entries (see below) |
+
+### `costumes` — Costume Entries
+
+Each character can have multiple costumes. Each costume in the `costumes` array can have these fields:
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `name` | string | ✅ | Costume name (e.g. `"Bride"`, `"WPQ"`, `"H"`) |
 | `damage_type` | string | ✅ | `ATK`, `MATK`, or `Max HP` |
-| `atk` | number | attackers only | Base ATK or MATK stat |
-| `crit_dmg` | number | attackers only | Base crit damage **as a decimal above 0** — e.g. `0.75` means +75% crit damage (total crit mult becomes `1.75`) |
 | `ratio_per_hit` | number | attackers only | Damage ratio per individual hit |
 | `hits` | integer | attackers only | Number of hits in the skill |
-| `buffs` | list | optional | Team-wide buffs this character provides (see below) |
+| `buffs` | list | optional | Team-wide buffs this costume provides (see below) |
 | `temp_buffs` | mapping | optional | Self-only buffs (see below) |
-| `domain` | mapping | optional | Team-wide buffs that don't count for buff_count (see below) |
+| `domain` | mapping | optional | Team-wide buffs (not counted for buff_count) |
 
 These values are for a 'naked' character without gear, but they are hard to standardize as they depend on which costume is bonded, total collection bonus %, and potential nodes. Remember to use the gear presets to easily save your current loadouts before data entry.
 
@@ -84,19 +94,7 @@ buffs:
 
 ### `domain` — Team-Wide Buffs (Excluded from buff_count)
 
-`domain` is a plain mapping (dict) similar to `temp_buffs`. These provide team-wide buffs like regular `buffs`, but **do not count toward NH Nebris's buff_count calculation**. This is used for characters who apply both damage and team buffs (like RL Olivier).
-
-```yaml
-domain:
-  MATK%: 0.6      # +60% MATK to all MATK characters
-  ATK%: 0.5        # +50% ATK to all ATK characters
-  overall: 1.2       # +120% overall damage
-  crit_rate: 0.3     # +30% crit rate
-  crit_dmg: 0.75     # +75% crit damage
-  chain_count: 1    # +1 chain count per hit
-```
-
-**Key difference from `buffs`:** Domain buffs apply to the team but are excluded from NH Nebris's buff_count calculation, making them ideal for hybrid attacker/buffer characters.
+These provide team-wide buffs like regular `buffs`, but **do not count toward NH Nebris's buff_count calculation**. Domain buffs affect the character's own damage and any characters that attack after them in the rotation.
 
 ### `temp_buffs` — Self-Only Buffs
 
@@ -123,34 +121,45 @@ temp_buffs:
 
 ```yaml
 # Hybrid Attacker/Buffer — with domain buffs
-- name: "RL Olivier"
-  damage_type: MATK
+- name: Olivier
   atk: 378
-  crit_dmg: 1
-  ratio_per_hit: 0.5
-  hits: 6
-  domain:
-    MATK%: 0.6      # +60% MATK to team (doesn't count for Nebris)
+  is_atk_engraved: false
+  crit_dmg: 1.0
+  costumes:
+  - name: RL
+    damage_type: MATK
+    ratio_per_hit: 0.5
+    hits: 6
+    domain:
+      MATK%: 0.6      # +60% MATK to team (doesn't count for Nebris)
 
 # Pure buffer — no damage stats needed
-- name: "Shrine Granadair"
-  damage_type: MATK
-  buffs:
-    - overall: 1.2
+- name: Granadair
+  atk: 0
+  is_atk_engraved: false
+  crit_dmg: 0.5
+  costumes:
+  - name: Shrine
+    damage_type: MATK
+    buffs:
+      - overall: 1.2
 
 # Attacker — no buffs needed
-- name: "Bride Eclipse"
-  damage_type: MATK
-  atk: 565
+- name: Eclipse
+  atk: 572
+  is_atk_engraved: false
   crit_dmg: 0.642
-  ratio_per_hit: 5.5
-  hits: 1
+  costumes:
+  - name: Bride
+    damage_type: MATK
+    ratio_per_hit: 5.5
+    hits: 1
 
 ```
 
 ### Commenting Out Characters
 
-Prefix with `#` to temporarily exclude a character without deleting their entry:
+Prefix with `#` to temporarily exclude a character/costume without deleting their entry:
 
 ```yaml
   # - name: "RRH Rou"
@@ -225,7 +234,7 @@ Use this when gear is not a preset but you know its rarity, rank, refine level, 
 
 ### Mode 3: Raw — Pre-Computed Stats
 
-Use this for EX gear that has 3 primary stats, check the refinements window and enter the full stats.
+Use this for EX gear that has 3 primary stats, check the refinements window and get the full stats.
 
 ```yaml
 - name: "Wilhelmina SR15"
@@ -251,7 +260,7 @@ All stat fields are optional and default to `0` if omitted.
 
 ### `exclusive_for` — Locking Gear to a Character
 
-Setting `exclusive_for` means the gear can only be assigned to one specific character (matched by the last word of their name). For example, `exclusive_for: "Wilhelmina"` matches `"WPQ Wilhelmina"`, `"IM Wilhelmina"`, and `"FQ Wilhelmina"`.
+Setting `exclusive_for` means the gear can only be assigned to one specific character (matched by the base character name). For example, `exclusive_for: "Wilhelmina"` matches `"WPQ Wilhelmina"`, `"IM Wilhelmina"`, and `"FQ Wilhelmina"`.
 
 Exclusive gear **requires `rank: 5`** when using preset or from_rarity mode (it corresponds to EX rank in-game). Attempting to create exclusive gear at rank 1–4 raises an error at load time.
 
@@ -263,21 +272,47 @@ Exclusive gear is automatically pre-assigned before the optimizer runs. It is no
 
 ```yaml
 # ── Attacker with self-buff ───────────────────────────────────────────────────
-- name: "WPQ Wilhelmina"
-  damage_type: ATK
-  atk: 602
+- name: Wilhelmina
+  atk: 617
+  is_atk_engraved: false
   crit_dmg: 1.027
-  ratio_per_hit: 0.45
-  hits: 9
-  temp_buffs:
-    chain_count: 1      # she buffs herself to add 1 extra chain per hit
+  costumes:
+  - name: WPQ
+    damage_type: ATK
+    ratio_per_hit: 0.45
+    hits: 9
+    temp_buffs:
+      chain_count: 1      # she buffs herself to add 1 extra chain per hit
 
 # ── Buffer with two same-type buffs ──────────────────────────────────────────
-- name: "H Lathel"
-  damage_type: ATK
-  buffs:
-    - ATK%: 0.9
-    - ATK%: 0.6         # second ATK% buff counted separately for Nebris
+- name: Lathel
+  atk: 0
+  is_atk_engraved: true
+  crit_dmg: 0.5
+  costumes:
+  - name: H
+    damage_type: ATK
+    buffs:
+      - ATK%: 0.9
+      - ATK%: 0.6         # second ATK% buff counted separately for Nebris
+
+# ── Character with multiple costumes ────────────────────────────────────────
+- name: Lathel
+  atk: 0
+  is_atk_engraved: true
+  crit_dmg: 0.5
+  costumes:
+  - name: H              # Buffer costume
+    damage_type: ATK
+    buffs:
+      - ATK%: 0.9
+      - ATK%: 0.7
+  - name: POV            # Attacker costume
+    damage_type: ATK
+    ratio_per_hit: 7.5
+    hits: 1
+    temp_buffs:
+      ATK%: 0.5
 
 # ── Preset weapon ─────────────────────────────────────────────────────────────
 - preset: EDB
@@ -289,7 +324,7 @@ Exclusive gear is automatically pre-assigned before the optimizer runs. It is no
     - atk_percent
 
 # ── Custom armor (from_rarity) — note: armor can omit primary_stats ───────────
-- name: "IA UR4 armor"
+- name: IA UR4 armor
   slot: armor
   rarity: UR
   rank: 4
@@ -299,10 +334,10 @@ Exclusive gear is automatically pre-assigned before the optimizer runs. It is no
     - crit_dmg
 
 # ── Exclusive weapon (raw) ────────────────────────────────────────────────────
-- name: "Nebris UR21 exclusive"
+- name: Nebris UR21 exclusive
   slot: weapon
   flat_atk: 104
   atk_percent: 1.2436
   crit_dmg: 0.18
-  exclusive_for: "Nebris"   # only assigns to characters named "* Nebris"
+  exclusive_for: Nebris   # only assigns to characters named "* Nebris"
 ```
