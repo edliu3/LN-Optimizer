@@ -958,6 +958,7 @@ def optimize_team_with_beam_search(roster, gear_pool, team_size=20,
         if gear is None
     )
     
+    fill_damage = 0  # Initialize to avoid undefined variable
     if empty_count > 0:
         print(f"  Found {empty_count} empty slots, filling with beam search...")
         best_assignment, filled_count, fill_damage = beam_search_fill_empty_slots(
@@ -966,11 +967,16 @@ def optimize_team_with_beam_search(roster, gear_pool, team_size=20,
             prefilter_top_k=0,  # No filtering for fill phase - guarantee coverage
         )
         print(f"  Filled {filled_count} slots, damage: {fill_damage:,.0f}")
-        best_damage = fill_damage
+        # Note: fill_damage might use different rotation optimization, so we recalculate in next step
     
     # Get final sequence with BEST rotation
     print(f"  Optimizing final rotation...")
     damage, chain, sequence = evaluate_team_with_gear(best_team, best_assignment)
+    
+    # Check for inconsistency between fill_damage and final damage
+    if empty_count > 0 and abs(fill_damage - damage) > 1000:  # Allow small rounding differences
+        print(f"  ⚠️  Warning: Fill damage ({fill_damage:,.0f}) differs from final damage ({damage:,.0f})")
+        print(f"  Difference: {damage - fill_damage:,.0f}")
     
     final_results = [{
         'team': best_team,
@@ -1338,6 +1344,9 @@ def beam_search_fill_empty_slots(team, gear_pool, assignment, beam_width=50, pre
         print(f"  Beam search couldn't fill {len(unfilled_slots)} slots, using greedy fallback...")
         assignment, greedy_filled = fill_empty_gear_slots(team, gear_pool, assignment)
         slots_filled += greedy_filled
+        # Recalculate damage after greedy fallback to ensure consistency
+        from sim import evaluate_team_with_gear
+        beam_damage, _, _ = evaluate_team_with_gear(team, assignment)
     
     return assignment, slots_filled, beam_damage
 
