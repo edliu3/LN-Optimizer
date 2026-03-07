@@ -421,7 +421,9 @@ gear_pool:
   secondary_stats:
   - flat_atk
 # ---------- HELMETS ----------
-- preset: FH
+- name: FH crown
+  slot: head
+  rarity: UR
   rank: 3
   refine: 9
   secondary_stats:
