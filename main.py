@@ -7,7 +7,8 @@ from character.character import Character
 from sim import (
     optimize_team_with_beam_search, 
     adaptive_gear_assignment,
-    evaluate_team_with_gear
+    evaluate_team_with_gear,
+    optimize_for_threshold
 )
 from visualization import print_results, generate_html_report
 from data.data import _load_data
@@ -116,10 +117,11 @@ print("=" * 70)
 print("\nChoose optimization mode:")
 print("1. FIXED TEAM: Optimize gear for a predetermined team (fast)")
 print("2. FULL OPTIMIZATION: Optimize both team and gear (recommended)")
-print("3. UPDATE SUPPORT BONUS: Change the global damage multiplier")
+print("3. THRESHOLD OPTIMIZATION: Maximize probability to exceed damage target")
+print("4. UPDATE SUPPORT BONUS: Change the global damage multiplier")
 print("=" * 70)
 
-mode = input("\nEnter choice (1/2/3): ").strip()
+mode = input("\nEnter choice (1/2/3/4): ").strip()
 
 if mode == "1":
     print("\n📋 Optimizing gear for fixed team...")
@@ -211,6 +213,134 @@ elif mode == "2":
     if html_file:
         print(f"HTML report saved to: {html_file}")
 elif mode == "3":
+    print("\n" + "=" * 70)
+    print("THRESHOLD OPTIMIZATION")
+    print("=" * 70)
+    print("This mode optimizes your team to maximize the probability")
+    print("of exceeding a specific damage threshold.")
+    print("=" * 70)
+    
+    # Get threshold from user
+    while True:
+        try:
+            threshold_input = input("\nEnter damage threshold in millions (e.g., 40 for 40M): ").strip()
+            threshold = float(threshold_input.replace(',', '')) * 1000000  # Convert millions to actual damage
+            if threshold > 0:
+                break
+            else:
+                print("Threshold must be greater than 0")
+        except ValueError:
+            print("Please enter a valid number")
+    
+    print(f"\n🎯 Target threshold: {threshold:,.0f} damage")
+    
+    # Choose optimization preset
+    print("\nChoose optimization preset:")
+    print("1. Fast (quick team search)")
+    print("2. Balanced (recommended)")
+    print("3. Thorough (best results)")
+    
+    preset_choice = input("\nEnter choice (1-3): ").strip()
+    
+    preset_map = {
+        "1": "fast",
+        "2": "balanced",
+        "3": "thorough"
+    }
+    
+    gear_preset = preset_map.get(preset_choice, "fast")
+    
+    print(f"\nUsing Adaptive SA with {gear_preset} preset")
+    
+    # Define core characters that are almost always optimal
+    core_character_names = ["OM Liberta", "Bride Refithea", "Shrine Granadair"]
+    fixed_core = [c for c in roster if c.name in core_character_names]
+    
+    if len(fixed_core) < len(core_character_names):
+        missing = set(core_character_names) - {c.name for c in fixed_core}
+        print(f"⚠️  Warning: Core characters not found in roster: {missing}")
+    
+    # Run threshold optimization
+    results = optimize_for_threshold(
+        roster, gear_pool, threshold,
+        team_size=20,
+        beam_width=400,
+        fixed_core=fixed_core,
+        gear_preset=gear_preset
+    )
+    
+    print("\n" + "=" * 70)
+    print("THRESHOLD OPTIMIZATION RESULTS")
+    print("=" * 70)
+    
+    # Custom print function for threshold results
+    for idx, result in enumerate(results):
+        print(f"\n{'='*70}")
+        print(f"TEAM #{idx+1}")
+        print(f"{'='*70}")
+        print(f"Threshold: {result['threshold']:,.0f} damage")
+        print(f"Success Probability: {result['threshold_probability']*100:.2f}%")
+        print(f"Expected Damage: {result['damage']:,.0f}")
+        print(f"Chain Count: {result['chain']:.1f}")
+        print(f"\nTeam: {', '.join(c.name for c in result['team'])}")
+        print(f"\nRotation: {' → '.join(c.name for c in result['sequence'])}")
+        
+        # Show gear assignments (abbreviated)
+        print("\nGear Assignments (by Base Character):")
+        
+        # Group characters by base name
+        base_chars = {}
+        for char in result['team']:
+            if char.hits > 0:
+                base_name = char.get_base_character()
+                if base_name not in base_chars:
+                    base_chars[base_name] = []
+                base_chars[base_name].append(char)
+        
+        for base_name, costumes in base_chars.items():
+            if base_name in result['gear_assignment']:
+                gear_dict = result['gear_assignment'][base_name]
+                equipped = [g for g in gear_dict.values() if g is not None]
+                
+                if equipped:
+                    costume_names = ', '.join(c.name for c in costumes)
+                    print(f"\n  {base_name} ({costumes[0].damage_type}):")
+                    if len(costumes) > 1:
+                        print(f"    Costumes: {costume_names}")
+                    for slot in ["weapon", "armor", "head", "accessory", "glove"]:
+                        gear = gear_dict[slot]
+                        if gear:
+                            stats = []
+                            if gear.flat_atk > 0:
+                                stats.append(f"+{gear.flat_atk} ATK")
+                            if gear.flat_matk > 0:
+                                stats.append(f"+{gear.flat_matk} MATK")
+                            if gear.atk_percent > 0:
+                                stats.append(f"+{gear.atk_percent*100:.0f}% ATK")
+                            if gear.matk_percent > 0:
+                                stats.append(f"+{gear.matk_percent*100:.0f}% MATK")
+                            if gear.crit_dmg > 0:
+                                stats.append(f"+{gear.crit_dmg*100:.0f}% CRIT")
+                            
+                            # Mark exclusive gear
+                            exclusive_tag = " [EXCLUSIVE]" if gear.exclusive_for else ""
+                            print(f"    [{slot.upper():9}] {gear.name}{exclusive_tag}: {', '.join(stats)}")
+        
+        # Show crit rate summary
+        from utils import calculate_team_buffs
+        from visualization import print_crit_summary
+        team_buffs = calculate_team_buffs(result['team'])
+        print_crit_summary(result['team'], team_buffs)
+    
+    # Generate HTML report
+    print("\n" + "=" * 70)
+    print("GENERATING HTML REPORT...")
+    print("=" * 70)
+    html_file = generate_html_report(results, _DATA_FILE)
+    if html_file:
+        print(f"HTML report saved to: {html_file}")
+        
+elif mode == "4":
     print("\n" + "=" * 70)
     print("UPDATE SUPPORT BONUS")
     print("=" * 70)

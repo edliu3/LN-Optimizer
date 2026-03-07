@@ -13,7 +13,8 @@ def load_character_stats(csv_path):
         for row in reader:
             character_stats[row['enName']] = {
                 'base_atk': int(row['maxlevel_atk']) if row['maxlevel_atk'] else 0,
-                'engraving_atk': float(row['engraving_atk']) if row['engraving_atk'] else 0.0
+                'engraving_atk': float(row['engraving_atk']) if row['engraving_atk'] else 0.0,
+                'crit_rate': float(row['maxlevel_cr']) / 100.0 if row['maxlevel_cr'] else 0.0  # Convert % to decimal
             }
     
     return character_stats
@@ -50,6 +51,11 @@ def _load_data(yaml_path: str):
         base_character = None
         
         if not costumes:
+            # Get crit_rate from CSV if available
+            crit_rate = 0.1  # default
+            if entry['name'] in char_stats:
+                crit_rate = char_stats[entry['name']]['crit_rate']
+            
             # Create base character without costumes if it matches our target
             base_character = Character(
                 name          = entry['name'],
@@ -63,6 +69,7 @@ def _load_data(yaml_path: str):
                 domain        = entry.get('domain', {}),
                 base_flat_atk = 0,
                 base_atk_percent = 0,
+                crit_rate     = crit_rate,
             )
             roster_out.append(base_character)
             continue  # Skip to next character
@@ -99,6 +106,11 @@ def _load_data(yaml_path: str):
                 raw_buffs = costume['buffs']
                 costume_buffs = [(k, v) for item in raw_buffs for k, v in item.items()]
             
+            # Get crit_rate from CSV if available
+            crit_rate = 0.1  # default
+            if base_name in char_stats:
+                crit_rate = char_stats[base_name]['crit_rate']
+            
             # Create costume character with base modifiers
             costume_char = Character(
                 name          = costume_data["name"],
@@ -112,6 +124,7 @@ def _load_data(yaml_path: str):
                 domain        = costume_data["domain"],
                 base_flat_atk = base_flat_atk,
                 base_atk_percent = base_atk_percent,
+                crit_rate     = crit_rate,
             )
             roster_out.append(costume_char)
 
@@ -160,6 +173,7 @@ def _load_data(yaml_path: str):
                     atk_percent   = entry.get("atk_percent", 0),
                     matk_percent  = entry.get("matk_percent", 0),
                     crit_dmg      = entry.get("crit_dmg", 0),
+                    crit_rate     = entry.get("crit_rate", 0),
                     exclusive_for = entry.get("exclusive_for"),
                 )
 

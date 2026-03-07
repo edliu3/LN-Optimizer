@@ -1,13 +1,15 @@
 class Character:
-    def __init__(self, name, damage_type, atk, crit_dmg, ratio_per_hit, hits, buffs=None, temp_buffs=None, domain=None, base_flat_atk=0, base_atk_percent=0):
+    def __init__(self, name, damage_type, atk, crit_dmg, ratio_per_hit, hits, buffs=None, temp_buffs=None, domain=None, base_flat_atk=0, base_atk_percent=0, crit_rate=0.1):
         self.name = name
         self.damage_type = damage_type
         self.base_atk = atk  # Store base stats separately
         self.base_crit_dmg = crit_dmg  # Store raw base crit_dmg value
+        self.base_crit_rate = crit_rate  # Store base crit_rate value
         self.base_flat_atk = base_flat_atk  # Store base flat ATK from engraving
         self.base_atk_percent = base_atk_percent  # Store base ATK% multiplier
         self.atk = atk
         self.crit_dmg = crit_dmg  # Will be recalculated properly in _recalculate_stats
+        self.crit_rate = crit_rate  # Store crit_rate
         self.buffs = buffs if buffs is not None else []       # list of (buff_type, value) tuples
         self.temp_buffs = temp_buffs if temp_buffs is not None else {}  # dict; per-character, no duplicates
         self.domain = domain if domain is not None else {}  # dict; domain buffs that don't count for buff_count
@@ -66,6 +68,7 @@ class Character:
         total_atk_percent = self.base_atk_percent  # Start with base ATK% modifier
         total_matk_percent = 0
         total_crit_dmg = self.base_crit_dmg
+        total_crit_rate = self.base_crit_rate
         
         # Apply all gear bonuses
         for slot, gear in self.equipped_gear.items():
@@ -75,6 +78,7 @@ class Character:
                 total_atk_percent += gear.atk_percent
                 total_matk_percent += gear.matk_percent
                 total_crit_dmg += gear.crit_dmg
+                total_crit_rate += gear.crit_rate
         
         # Calculate final stats
         if self.damage_type == "MATK":
@@ -85,13 +89,14 @@ class Character:
             self.atk = self.base_atk
         
         self.crit_dmg = total_crit_dmg + 1
+        self.crit_rate = total_crit_rate
     
     def copy(self):
         """Create a deep copy of this character."""
         new_char = Character(
             self.name, self.damage_type, self.base_atk, self.base_crit_dmg,
             self.ratio_per_hit, self.hits, list(self.buffs), dict(self.temp_buffs), dict(self.domain),
-            self.base_flat_atk, self.base_atk_percent
+            self.base_flat_atk, self.base_atk_percent, self.crit_rate
         )
         # Note: Gear objects are immutable, so we can safely reference them
         for slot, gear in self.equipped_gear.items():

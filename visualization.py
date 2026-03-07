@@ -22,31 +22,53 @@ def format_damage(damage):
         return f"{damage:.0f}"
 
 def get_crit_summary(team, team_buffs):
-    """Return per-character crit-rate contributions and the team total."""
-    rows = []
+    """Return per-character crit-rate contributions grouped by actual crit rate."""
+    # Group characters by their actual crit_rate
+    crit_rate_groups = {}
     for char in team:
-        personal = sum(v for btype, v in char.buffs if btype == "crit_rate")
-        rows.append((char.name, personal))
-    team_total = min(team_buffs.get("crit_rate", 0) + 0.1, 1.0)
-    return rows, team_total
+        crit_rate = char.crit_rate
+        if crit_rate not in crit_rate_groups:
+            crit_rate_groups[crit_rate] = []
+        crit_rate_groups[crit_rate].append(char)
+    
+    # Calculate team buffs contribution
+    team_crit_buff = team_buffs.get("crit_rate", 0)
+    
+    return crit_rate_groups, team_crit_buff
 
 
 def print_crit_summary(team, team_buffs):
-    """Print a concise crit-rate table for the team."""
-    rows, team_total = get_crit_summary(team, team_buffs)
+    """Print a concise crit-rate table grouped by actual crit rate."""
+    crit_rate_groups, team_crit_buff = get_crit_summary(team, team_buffs)
+    
     print("\n" + "=" * 70)
     print("CRIT RATE SUMMARY")
     print("=" * 70)
-    print(f"  {'Character':<30} {'Crit Rate Contribution':>22}")
-    print(f"  {'-'*30} {'-'*22}")
-    for name, rate in rows:
-        char = next(c for c in team if c.name == name)
-        temp_cr = char.temp_buffs.get("crit_rate", 0) / 2
-        display = f"{rate*100/2:.1f}%  (+{temp_cr*100/2:.1f}% self)" if temp_cr > 0 else f"{rate*100/2:.1f}%"
-        if rate > 0 or temp_cr > 0:
-            print(f"  {name:<30} {display:>22}")
-    print(f"  {'':30} {'─'*22}")
-    print(f"  {'TEAM TOTAL (capped at 100%)':<30} {team_total*100:>20.1f}%")
+    
+    # Sort crit rates from highest to lowest for better readability
+    sorted_rates = sorted(crit_rate_groups.keys(), reverse=True)
+    
+    for crit_rate in sorted_rates:
+        chars_with_rate = crit_rate_groups[crit_rate]
+        char_names = [char.name for char in chars_with_rate]
+        
+        # Calculate final crit rate for this group
+        final_rate = min(crit_rate + team_crit_buff, 1.0)
+        
+        # Show base crit rate and team buff contribution
+        team_buff_display = f" +{team_crit_buff*100:.1f}% team" if team_crit_buff > 0 else ""
+        print(f"  {crit_rate*100:.1f}% base crit rate{team_buff_display} → {final_rate*100:.1f}% final")
+        print(f"    Characters: {', '.join(char_names)}")
+        
+        # Show temp buffs for characters that have them
+        chars_with_temp = [char for char in chars_with_rate if char.temp_buffs.get("crit_rate", 0) > 0]
+        if chars_with_temp:
+            for char in chars_with_temp:
+                temp_buff = char.temp_buffs.get("crit_rate", 0) / 2
+                final_with_temp = min(final_rate + temp_buff, 1.0)
+                print(f"      {char.name}: +{temp_buff*100:.1f}% temp → {final_with_temp*100:.1f}% total")
+        
+        print()  # Add space between groups
 
 
 def print_results(results):
@@ -184,7 +206,7 @@ def plot_damage_contribution_html(sequence, team_buffs, support_bonus=None):
     return image_base64, damage_data
 
 
-def plot_crit_distribution_html(sequence, team_buffs, support_bonus=None):
+def plot_crit_distribution_html(sequence, team_buffs, support_bonus=None, threshold=None):
     """
     Generate crit distribution plot as HTML base64 string.
     Returns tuple of (base64_image, stats_dict)
@@ -212,6 +234,16 @@ def plot_crit_distribution_html(sequence, team_buffs, support_bonus=None):
         ax.text(thresh + 0.3, ax.get_ylim()[1] * 0.97,
                 f"≥{thresh}%\n{prob:.1f}% chance\n{dmg_str} dmg",
                 color=col, fontsize=8.5, va="top", fontweight="bold")
+
+    # Add threshold line if threshold optimization is used
+    if threshold is not None and threshold > 0:
+        threshold_pct = (threshold / full_dmg) * 100
+        ax.axvline(threshold_pct, color="#9b59b6", linewidth=2.5, linestyle="-")
+        prob_threshold = (pct >= threshold_pct).mean() * 100
+        ax.text(threshold_pct + 0.3, ax.get_ylim()[1] * 0.85,
+                f"TARGET\n{threshold_pct:.1f}%\n{prob_threshold:.1f}% chance\n{format_damage(threshold)} dmg",
+                color="#9b59b6", fontsize=9, va="top", fontweight="bold", 
+                bbox=dict(boxstyle="round,pad=0.3", facecolor="white", alpha=0.8, edgecolor="#9b59b6"))
 
     ax.set_xlabel("Damage as % of Full Crit Damage", fontsize=11)
     ax.set_ylabel("Probability Density", fontsize=11)
@@ -258,11 +290,8 @@ def plot_crit_distribution_html(sequence, team_buffs, support_bonus=None):
 
 
 def format_crit_summary_html(team, team_buffs):
-    """Generate HTML table for crit rate summary."""
-    rows, team_total = get_crit_summary(team, team_buffs)
-    
-    # Build character lookup dict for O(1) access instead of O(n²) search
-    char_by_name = {c.name: c for c in team}
+    """Generate HTML table for crit rate summary grouped by actual crit rate."""
+    crit_rate_groups, team_crit_buff = get_crit_summary(team, team_buffs)
     
     html_content = """
     <div class="crit-summary">
@@ -270,33 +299,57 @@ def format_crit_summary_html(team, team_buffs):
         <table class="crit-table">
             <thead>
                 <tr>
-                    <th>Character</th>
-                    <th>Crit Rate Contribution</th>
+                    <th>Base Crit Rate</th>
+                    <th>Characters</th>
+                    <th>Final Rate</th>
                 </tr>
             </thead>
             <tbody>
     """
     
-    for name, rate in rows:
-        char = char_by_name[name]  # O(1) lookup instead of O(n) search
-        temp_cr = char.temp_buffs.get("crit_rate", 0) / 2
-        display = f"{rate*100/2:.1f}%  (+{temp_cr*100/2:.1f}% self)" if temp_cr > 0 else f"{rate*100/2:.1f}%"
-        if rate > 0 or temp_cr > 0:
+    # Sort crit rates from highest to lowest for better readability
+    sorted_rates = sorted(crit_rate_groups.keys(), reverse=True)
+    
+    for crit_rate in sorted_rates:
+        chars_with_rate = crit_rate_groups[crit_rate]
+        char_names = [char.name for char in chars_with_rate]
+        
+        # Calculate final crit rate for this group
+        final_rate = min(crit_rate + team_crit_buff, 1.0)
+        
+        # Check for temp buffs
+        chars_with_temp = [char for char in chars_with_rate if char.temp_buffs.get("crit_rate", 0) > 0]
+        chars_without_temp = [char for char in chars_with_rate if char.temp_buffs.get("crit_rate", 0) == 0]
+        
+        # Show base crit rate and team buff contribution
+        team_buff_display = f" +{team_crit_buff*100:.1f}% team" if team_crit_buff > 0 else ""
+        
+        # Show characters without temp buffs grouped
+        if chars_without_temp:
             html_content += f"""
                 <tr>
-                    <td>{name}</td>
-                    <td>{display}</td>
+                    <td>{crit_rate*100:.1f}%{team_buff_display}</td>
+                    <td>{', '.join([char.name for char in chars_without_temp])}</td>
+                    <td>{final_rate*100:.1f}%</td>
+                </tr>
+            """
+        
+        # Show characters with temp buffs individually
+        for char in chars_with_temp:
+            temp_buff = char.temp_buffs.get("crit_rate", 0) / 2
+            final_with_temp = min(final_rate + temp_buff, 1.0)
+            temp_display = f" +{temp_buff*100:.1f}% temp" if temp_buff > 0 else ""
+            
+            html_content += f"""
+                <tr>
+                    <td>{crit_rate*100:.1f}%{team_buff_display}{temp_display}</td>
+                    <td>{char.name}</td>
+                    <td>{final_with_temp*100:.1f}%</td>
                 </tr>
             """
     
-    html_content += f"""
+    html_content += """
             </tbody>
-            <tfoot>
-                <tr class="total-row">
-                    <td>TEAM TOTAL (capped at 100%)</td>
-                    <td>{team_total*100:.1f}%</td>
-                </tr>
-            </tfoot>
         </table>
     </div>
     """
@@ -319,7 +372,14 @@ def generate_html_report(results, data_file_path, output_file=None, support_bonu
     if output_file is None:
         timestamp = datetime.now().strftime("%Y%m%d")
         max_damage = results[0]['damage']
-        output_file = Path.cwd() / "reports" / f"{format_damage(max_damage)}_{timestamp}.html"
+        
+        # Check if this is threshold optimization and include probability in filename
+        if 'threshold_probability' in results[0] and results[0]['threshold_probability'] is not None:
+            threshold_prob = results[0]['threshold_probability']
+            threshold = results[0].get('threshold', 0)
+            output_file = Path.cwd() / "reports" / f"{format_damage(max_damage)}_P{threshold_prob*100:.1f}_T{format_damage(threshold)}_{timestamp}.html"
+        else:
+            output_file = Path.cwd() / "reports" / f"{format_damage(max_damage)}_{timestamp}.html"
     
     # Load input data and prepare for export
     yaml_base64 = ""
@@ -512,6 +572,18 @@ def generate_html_report(results, data_file_path, output_file=None, support_bonu
                     <div class="stat-value">{result['chain']:.1f}</div>
                     <div class="stat-label">Chain Count</div>
                 </div>
+        """
+        
+        # Add threshold probability if available
+        if 'threshold_probability' in result:
+            html_content += f"""
+                <div class="stat-card">
+                    <div class="stat-value">{result['threshold_probability']*100:.2f}%</div>
+                    <div class="stat-label">Success Rate &gt; {format_damage(result.get('threshold', 0))}</div>
+                </div>
+            """
+        
+        html_content += f"""
             </div>
             
             <h3>Team Composition</h3>
@@ -591,7 +663,26 @@ def generate_html_report(results, data_file_path, output_file=None, support_bonu
         
         # Add plot
         html_content += "<h3>Crit Damage Distribution</h3>"
-        plot_base64, plot_stats = plot_crit_distribution_html(result['sequence'], team_buffs, support_bonus)
+        
+        # Add crit distribution plot with threshold if available
+        threshold = result.get('threshold', None)
+        plot_base64, plot_stats = plot_crit_distribution_html(result['sequence'], team_buffs, support_bonus, threshold)
+        
+        # If we have threshold probability, add a note about the calculation method
+        if 'threshold_probability' in result and plot_base64:
+            threshold = result.get('threshold', 0)
+            fft_prob = result['threshold_probability']
+            
+            # Calculate Monte Carlo probability for comparison if we have plot stats
+            mc_prob = None
+            if plot_stats and threshold > 0:
+                # Estimate from plot: P(D > threshold) ≈ P(Damage% > threshold/full_dmg * 100)
+                threshold_pct = (threshold / plot_stats['full_dmg']) * 100
+                # This is approximate - the actual MC would need the raw simulation data
+                html_content += f"""
+                <p><small><strong>Note:</strong> Success rate uses exact FFT calculation ({fft_prob*100:.2f}%). 
+                Plot uses Monte Carlo simulation which may show slightly different values due to random sampling.</small></p>
+                """
         
         if plot_base64:
             html_content += f"""

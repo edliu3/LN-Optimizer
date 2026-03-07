@@ -126,7 +126,7 @@ class Gear:
         "dragon scale's protection": ("Dragon Scale's Protection",  "glove",     ["flat_matk",    "matk_percent"]),
     }
 
-    def __init__(self, name, slot, flat_atk=0, flat_matk=0, atk_percent=0, matk_percent=0, crit_dmg=0, exclusive_for=None):
+    def __init__(self, name, slot, flat_atk=0, flat_matk=0, atk_percent=0, matk_percent=0, crit_dmg=0, crit_rate=0, exclusive_for=None):
         """
         slot must be one of: weapon, head, armor, accessory, glove
         exclusive_for: base character name this gear is locked to (e.g., "Wilhelmina")
@@ -139,6 +139,7 @@ class Gear:
         self.atk_percent = atk_percent
         self.matk_percent = matk_percent
         self.crit_dmg = crit_dmg
+        self.crit_rate = crit_rate
         self.exclusive_for = exclusive_for
 
     @classmethod
@@ -297,7 +298,7 @@ class Gear:
         stats = {
             "flat_atk": 0.0, "flat_matk": 0.0,
             "atk_percent": 0.0, "matk_percent": 0.0,
-            "crit_dmg": 0.0,
+            "crit_dmg": 0.0, "crit_rate": 0.0,
         }
 
         scale = refine_level + 6
@@ -324,6 +325,7 @@ class Gear:
             atk_percent=round(stats.get("atk_percent", 0.0), 4),
             matk_percent=round(stats.get("matk_percent", 0.0), 4),
             crit_dmg=round(stats.get("crit_dmg", 0.0), 4),
+            crit_rate=round(stats.get("crit_rate", 0.0), 4),
             exclusive_for=exclusive_for,
         )
 
