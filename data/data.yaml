@@ -425,7 +425,7 @@ gear_pool:
   slot: head
   rarity: UR
   rank: 3
-  refine: 9
+  refine: 24
   secondary_stats:
   - atk_percent
   - crit_dmg
