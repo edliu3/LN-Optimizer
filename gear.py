@@ -109,7 +109,7 @@ class Gear:
         "venomous touch":            ("Venomous Touch",             "accessory", ["crit_dmg",     "crit_dmg"]),
         "rol":                       ("Ring of the Lake",           "accessory", ["crit_dmg",     "flat_hp"]),
         "ring of the lake":          ("Ring of the Lake",           "accessory", ["crit_dmg",     "flat_hp"]),
-        "cg":                        ("Venomous Touch",             "accessory", ["crit_dmg",     "hp_percent"]),
+        "cg":                        ("Charming Gaze",              "accessory", ["crit_dmg",     "hp_percent"]),
         "charming gaze":             ("Charming Gaze",              "accessory", ["crit_dmg",     "hp_percent"]),
         # Gloves
         "r":                         ("Rebellion",                  "glove",     ["atk_percent",  "crit_rate"]),

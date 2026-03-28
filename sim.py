@@ -1085,7 +1085,7 @@ def _hits_data(sequence, team_buffs, support_bonus=None):
     # Convert back to list of tuples for compatibility
     return list(zip(char_name_arr, crit_damage_arr, non_crit_damage_arr, crit_rate_arr))
 
-def simulate_crit_distribution(sequence, team_buffs, n_simulations=10000000, support_bonus=None):
+def simulate_crit_distribution(sequence, team_buffs, n_simulations=100000, support_bonus=None):
     # Use config support_bonus if not provided
     if support_bonus is None:
         support_bonus = config.support_bonus
