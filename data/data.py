@@ -13,7 +13,10 @@ def load_character_stats(csv_path):
         for row in reader:
             character_stats[row['enName']] = {
                 'base_atk': int(row['maxlevel_atk']) if row['maxlevel_atk'] else 0,
-                'engraving_atk': float(row['engraving_atk']) if row['engraving_atk'] else 0.0
+                'engraving_atk': float(row['engraving_atk']) if row['engraving_atk'] else 0.0,
+                'base_hp': int(row['maxlevel_hp']) if row.get('maxlevel_hp') else 0,
+                'engraving_hp': float(row['engraving_hp']) if row.get('engraving_hp') else 0.0,
+                'crit_rate': float(row['maxlevel_cr']) / 100.0 if row['maxlevel_cr'] else 0.0  # Convert % to decimal
             }
     
     return character_stats
@@ -50,6 +53,11 @@ def _load_data(yaml_path: str):
         base_character = None
         
         if not costumes:
+            # Get crit_rate from CSV if available
+            crit_rate = 0.1  # default
+            if entry['name'] in char_stats:
+                crit_rate = char_stats[entry['name']]['crit_rate']
+            
             # Create base character without costumes if it matches our target
             base_character = Character(
                 name          = entry['name'],
@@ -63,6 +71,10 @@ def _load_data(yaml_path: str):
                 domain        = entry.get('domain', {}),
                 base_flat_atk = 0,
                 base_atk_percent = 0,
+                crit_rate     = crit_rate,
+                base_hp       = char_stats.get(entry['name'], {}).get('base_hp', 0),
+                base_flat_hp = char_stats.get(entry['name'], {}).get('engraving_hp', 0) if entry.get('is_hp_engraved', False) else 0.0,
+                base_hp_percent = 0,
             )
             roster_out.append(base_character)
             continue  # Skip to next character
@@ -71,13 +83,20 @@ def _load_data(yaml_path: str):
         base_name = entry['name']
         base_flat_atk = 0
         base_atk_percent = 0
+        base_flat_hp = 0
+        base_hp_percent = 0
+        effective_base_hp = 0
         
         if base_name in char_stats:
             base_stats = char_stats[base_name]
             base_flat_atk = base_stats['engraving_atk'] if entry.get('is_atk_engraved', False) else 0.0
+            base_flat_hp = base_stats['engraving_hp'] if entry.get('is_hp_engraved', False) else 0.0
             yaml_atk = entry.get('atk', 0)
             if yaml_atk > 0 and (base_stats['base_atk'] + base_flat_atk) > 0:
                 base_atk_percent = (yaml_atk / (base_stats['base_atk'] + base_flat_atk)) - 1
+            yaml_hp = entry.get('hp', 0)
+            if yaml_hp > 0 and (base_stats['base_hp'] + base_flat_hp) > 0:
+                base_hp_percent = (yaml_hp / (base_stats['base_hp'] + base_flat_hp)) - 1
         
         # Process costumes only (skip base character)
         for costume in costumes:
@@ -99,6 +118,11 @@ def _load_data(yaml_path: str):
                 raw_buffs = costume['buffs']
                 costume_buffs = [(k, v) for item in raw_buffs for k, v in item.items()]
             
+            # Get crit_rate from CSV if available
+            crit_rate = 0.1  # default
+            if base_name in char_stats:
+                crit_rate = char_stats[base_name]['crit_rate']
+            
             # Create costume character with base modifiers
             costume_char = Character(
                 name          = costume_data["name"],
@@ -112,6 +136,10 @@ def _load_data(yaml_path: str):
                 domain        = costume_data["domain"],
                 base_flat_atk = base_flat_atk,
                 base_atk_percent = base_atk_percent,
+                crit_rate     = crit_rate,
+                base_hp       = base_stats['base_hp'] if base_name in char_stats else entry.get("hp", 0),
+                base_flat_hp = base_flat_hp,
+                base_hp_percent = base_hp_percent,
             )
             roster_out.append(costume_char)
 
@@ -157,8 +185,10 @@ def _load_data(yaml_path: str):
                     slot          = entry["slot"],
                     flat_atk      = entry.get("flat_atk", 0),
                     flat_matk     = entry.get("flat_matk", 0),
+                    flat_hp       = entry.get("flat_hp", 0),
                     atk_percent   = entry.get("atk_percent", 0),
                     matk_percent  = entry.get("matk_percent", 0),
+                    hp_percent    = entry.get("hp_percent", 0),
                     crit_dmg      = entry.get("crit_dmg", 0),
                     exclusive_for = entry.get("exclusive_for"),
                 )

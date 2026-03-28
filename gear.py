@@ -75,29 +75,29 @@ class Gear:
         # Armor
         "ia":                        ("Invulnerable Armor",         "armor",     []),
         "invulnerable armor":        ("Invulnerable Armor",         "armor",     []),
-        "sosg":                      ("Scale of the Sea God",       "armor",     []),
-        "scale of the sea god":      ("Scale of the Sea God",       "armor",     []),
-        "iga":                       ("Immortal Golden Armor",      "armor",     []),
-        "immortal golden armor":     ("Immortal Golden Armor",      "armor",     []),
+        "sosg":                      ("Scale of the Sea God",       "armor",     ["flat_hp"]),
+        "scale of the sea god":      ("Scale of the Sea God",       "armor",     ["flat_hp"]),
+        "iga":                       ("Immortal Golden Armor",      "armor",     ["hp_percent"]),
+        "immortal golden armor":     ("Immortal Golden Armor",      "armor",     ["hp_percent"]),
         "fg":                        ("Fiend Guard",                "armor",     []),
         "fiend guard":               ("Fiend Guard",                "armor",     []),
-        "ds":                        ("Death's Shroud",             "armor",     []),
-        "death's shroud":            ("Death's Shroud",             "armor",     []),
-        "hr":                        ("Hellfire Robe",              "armor",     []),
-        "hellfire robe":             ("Hellfire Robe",              "armor",     []),
+        "ds":                        ("Death's Shroud",             "armor",     ["flat_hp"]),
+        "death's shroud":            ("Death's Shroud",             "armor",     ["flat_hp"]),
+        "hr":                        ("Hellfire Robe",              "armor",     ["hp_percent"]),
+        "hellfire robe":             ("Hellfire Robe",              "armor",     ["hp_percent"]),
         # head
         "hoc":                       ("Helm of Carnage",            "head",    []),
         "helm of carnage":           ("Helm of Carnage",            "head",    []),
-        "ug":                        ("Undefeated Glory",           "head",    []),
-        "undefeated glory":          ("Undefeated Glory",           "head",    []),
-        "hod":                       ("Helm of Death",              "head",    []),
-        "helm of death":             ("Helm of Death",              "head",    []),
+        "ug":                        ("Undefeated Glory",           "head",    ["flat_hp"]),
+        "undefeated glory":          ("Undefeated Glory",           "head",    ["flat_hp"]),
+        "hod":                       ("Helm of Death",              "head",    ["hp_percent"]),
+        "helm of death":             ("Helm of Death",              "head",    ["hp_percent"]),
         "rw":                        ("Radiant Wisdom",             "head",    []),
         "radiant wisdom":            ("Radiant Wisdom",             "head",    []),
-        "sb":                        ("Solar Brilliance",           "head",    []),
-        "solar brilliance":          ("Solar Brilliance",           "head",    []),
-        "cog":                       ("Crown of Galaxy",            "head",    []),
-        "crown of galaxy":           ("Crown of Galaxy",            "head",    []),
+        "sb":                        ("Solar Brilliance",           "head",    ["flat_hp"]),
+        "solar brilliance":          ("Solar Brilliance",           "head",    ["flat_hp"]),
+        "cog":                       ("Crown of Galaxy",            "head",    ["hp_percent"]),
+        "crown of galaxy":           ("Crown of Galaxy",            "head",    ["hp_percent"]),
         # Accessories
         "wob":                       ("Warmth of the Brazier",      "accessory", ["crit_rate",    "crit_rate"]),
         "warmth of the brazier":     ("Warmth of the Brazier",      "accessory", ["crit_rate",    "crit_rate"]),
@@ -109,7 +109,7 @@ class Gear:
         "venomous touch":            ("Venomous Touch",             "accessory", ["crit_dmg",     "crit_dmg"]),
         "rol":                       ("Ring of the Lake",           "accessory", ["crit_dmg",     "flat_hp"]),
         "ring of the lake":          ("Ring of the Lake",           "accessory", ["crit_dmg",     "flat_hp"]),
-        "cg":                        ("Venomous Touch",             "accessory", ["crit_dmg",     "hp_percent"]),
+        "cg":                        ("Charming Gaze",              "accessory", ["crit_dmg",     "hp_percent"]),
         "charming gaze":             ("Charming Gaze",              "accessory", ["crit_dmg",     "hp_percent"]),
         # Gloves
         "r":                         ("Rebellion",                  "glove",     ["atk_percent",  "crit_rate"]),
@@ -126,7 +126,7 @@ class Gear:
         "dragon scale's protection": ("Dragon Scale's Protection",  "glove",     ["flat_matk",    "matk_percent"]),
     }
 
-    def __init__(self, name, slot, flat_atk=0, flat_matk=0, atk_percent=0, matk_percent=0, crit_dmg=0, exclusive_for=None):
+    def __init__(self, name, slot, flat_atk=0, flat_matk=0, atk_percent=0, matk_percent=0, crit_dmg=0, flat_hp=0, hp_percent=0, exclusive_for=None):
         """
         slot must be one of: weapon, head, armor, accessory, glove
         exclusive_for: base character name this gear is locked to (e.g., "Wilhelmina")
@@ -139,6 +139,8 @@ class Gear:
         self.atk_percent = atk_percent
         self.matk_percent = matk_percent
         self.crit_dmg = crit_dmg
+        self.flat_hp = flat_hp
+        self.hp_percent = hp_percent
         self.exclusive_for = exclusive_for
 
     @classmethod
@@ -298,6 +300,7 @@ class Gear:
             "flat_atk": 0.0, "flat_matk": 0.0,
             "atk_percent": 0.0, "matk_percent": 0.0,
             "crit_dmg": 0.0,
+            "flat_hp": 0.0, "hp_percent": 0.0,
         }
 
         scale = refine_level + 6
@@ -324,6 +327,8 @@ class Gear:
             atk_percent=round(stats.get("atk_percent", 0.0), 4),
             matk_percent=round(stats.get("matk_percent", 0.0), 4),
             crit_dmg=round(stats.get("crit_dmg", 0.0), 4),
+            flat_hp=round(stats.get("flat_hp", 0)),
+            hp_percent=round(stats.get("hp_percent", 0.0), 4),
             exclusive_for=exclusive_for,
         )
 
@@ -347,6 +352,8 @@ class Gear:
         - Flat ATK/MATK: 5.4x base value
         - ATK%/MATK%: 5.4x scaled by base ATK
         - Crit DMG: 3.6x scaled by base ATK
+        - Flat HP: 5.4x base value for HP-based characters
+        - HP%: 5.4x scaled by base HP
         
         Uses logarithmic scaling for extreme base ATK values to maintain accuracy.
         """
@@ -360,11 +367,22 @@ class Gear:
             # For low ATK characters, scale linearly
             scaled_atk = char.base_atk
         
+        # For HP-based characters, scale by base HP
+        base_hp_factor = getattr(char, 'base_hp', 0) / 5000.0  # Normalize to 5000 HP baseline
+        if base_hp_factor > 1.0:
+            scaled_hp = 5000.0 * (1 + (base_hp_factor - 1) ** 0.7)
+        else:
+            scaled_hp = getattr(char, 'base_hp', 0)
+        
         if char.damage_type == "ATK":
             return (self.flat_atk * 5.4 + self.atk_percent * scaled_atk * 5.4 +
                     self.crit_dmg * scaled_atk * 3.6)
         elif char.damage_type == "MATK":
             return (self.flat_matk * 5.4 + self.matk_percent * scaled_atk * 5.4 +
                     self.crit_dmg * scaled_atk * 3.6)
-        else:  # Max HP
+        elif char.damage_type == "Enemy Max HP":
+            # Enemy Max HP characters only benefit from crit_dmg
             return self.crit_dmg * 100
+        else:  # Own Max HP - properly value HP stats
+            return (self.flat_hp * 5.4 + self.hp_percent * scaled_hp * 5.4 +
+                    self.crit_dmg * scaled_hp * 3.6)
