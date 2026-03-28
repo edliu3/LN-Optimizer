@@ -83,8 +83,13 @@ def calculate_damage_stats(char, team_buffs):
     Returns:
         Tuple of (attack, damage_type_buff, ratio_per_hit)
     """
-    if char.damage_type == "Max HP":
+    if char.damage_type == "Enemy Max HP":
         atk = 50000
+        damage_type_buff = 1
+    elif char.damage_type == "Own Max HP":
+        # Calculate character's actual max_hp from gear and base stats
+        max_hp = calculate_character_max_hp(char)
+        atk = max_hp
         damage_type_buff = 1
     elif char.damage_type == "MATK":
         atk = char.atk
@@ -177,6 +182,36 @@ def calculate_chain_multiplier(team_buffs, char_temp_buffs):
     if team_buffs.get("chain_count") or char_temp_buffs.get("chain_count") is not None:
         return 1 + team_buffs.get("chain_count", 0) + char_temp_buffs.get("chain_count", 0)
     return 1
+
+
+def calculate_character_max_hp(char):
+    """
+    Calculate a character's max HP based on base HP and gear bonuses.
+    
+    Args:
+        char: Character object
+        
+    Returns:
+        Max HP value
+    """
+    # Always calculate HP from base stats and gear to ensure all bonuses are included
+    base_hp = getattr(char, 'base_hp', 0)
+    base_flat_hp = getattr(char, 'base_flat_hp', 0)
+    
+    # Add HP from gear
+    total_hp_percent = getattr(char, 'base_hp_percent', 0)
+    total_flat_hp = base_flat_hp  # Include engraving HP
+    
+    for slot, gear in char.equipped_gear.items():
+        if gear is not None:
+            total_flat_hp += getattr(gear, 'flat_hp', 0)
+            total_hp_percent += getattr(gear, 'hp_percent', 0)
+    
+    # Calculate final max HP
+    max_hp = (base_hp + total_flat_hp) * (1 + total_hp_percent)
+    
+    # Ensure minimum HP to avoid zero damage
+    return max(max_hp, 1)
 
 
 def get_attackers_and_buffers(team):

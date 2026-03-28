@@ -1,6 +1,18 @@
 support_bonus: 4.0
 nh_nebris_ratio_multiplier: 0.2
 roster:
+- name: Mamonir
+  atk: 0
+  hp: 5388
+  is_hp_engraved: true
+  crit_dmg: 0.5
+  costumes:
+  - name: NoD
+    damage_type: Own Max HP
+    ratio_per_hit: 0.09
+    hits: 8
+    temp_buffs:
+      crit_dmg: 2
 - name: Refithea
   atk: 0
   is_atk_engraved: false
@@ -227,7 +239,7 @@ roster:
   crit_dmg: 1.217
   costumes:
   - name: NC
-    damage_type: Max HP
+    damage_type: Enemy Max HP
     ratio_per_hit: 0.14
     hits: 5
   - name: SC

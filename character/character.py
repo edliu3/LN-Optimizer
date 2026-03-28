@@ -1,11 +1,14 @@
 class Character:
-    def __init__(self, name, damage_type, atk, crit_dmg, ratio_per_hit, hits, buffs=None, temp_buffs=None, domain=None, base_flat_atk=0, base_atk_percent=0):
+    def __init__(self, name, damage_type, atk, crit_dmg, ratio_per_hit, hits, buffs=None, temp_buffs=None, domain=None, base_flat_atk=0, base_atk_percent=0, crit_rate=0.1, base_hp=0, base_flat_hp=0, base_hp_percent=0):
         self.name = name
         self.damage_type = damage_type
         self.base_atk = atk  # Store base stats separately
         self.base_crit_dmg = crit_dmg  # Store raw base crit_dmg value
         self.base_flat_atk = base_flat_atk  # Store base flat ATK from engraving
         self.base_atk_percent = base_atk_percent  # Store base ATK% multiplier
+        self.base_hp = base_hp  # Store base HP
+        self.base_flat_hp = base_flat_hp  # Store base flat HP from engraving
+        self.base_hp_percent = base_hp_percent  # Store base HP% multiplier
         self.atk = atk
         self.crit_dmg = crit_dmg  # Will be recalculated properly in _recalculate_stats
         self.buffs = buffs if buffs is not None else []       # list of (buff_type, value) tuples
@@ -67,6 +70,10 @@ class Character:
         total_matk_percent = 0
         total_crit_dmg = self.base_crit_dmg
         
+        # HP-related calculations
+        total_flat_hp = self.base_flat_hp
+        total_hp_percent = self.base_hp_percent  # Start with base HP% modifier
+        
         # Apply all gear bonuses
         for slot, gear in self.equipped_gear.items():
             if gear is not None:
@@ -75,13 +82,19 @@ class Character:
                 total_atk_percent += gear.atk_percent
                 total_matk_percent += gear.matk_percent
                 total_crit_dmg += gear.crit_dmg
+                total_flat_hp += getattr(gear, 'flat_hp', 0)
+                total_hp_percent += getattr(gear, 'hp_percent', 0)
         
         # Calculate final stats
         if self.damage_type == "MATK":
             self.atk = total_flat_matk * (1 + total_matk_percent)
         elif self.damage_type == "ATK":
             self.atk = total_flat_atk * (1 + total_atk_percent)
-        else:  # Max HP
+        elif self.damage_type == "Own Max HP":
+            self.atk = (self.base_hp + total_flat_hp) * (1 + total_hp_percent)
+        elif self.damage_type == "Enemy Max HP":
+            self.atk = 50000
+        else:  # Fallback for other damage types
             self.atk = self.base_atk
         
         self.crit_dmg = total_crit_dmg + 1
@@ -91,7 +104,8 @@ class Character:
         new_char = Character(
             self.name, self.damage_type, self.base_atk, self.base_crit_dmg,
             self.ratio_per_hit, self.hits, list(self.buffs), dict(self.temp_buffs), dict(self.domain),
-            self.base_flat_atk, self.base_atk_percent
+            self.base_flat_atk, self.base_atk_percent, self.crit_rate,
+            self.base_hp, self.base_flat_hp, self.base_hp_percent
         )
         # Note: Gear objects are immutable, so we can safely reference them
         for slot, gear in self.equipped_gear.items():
