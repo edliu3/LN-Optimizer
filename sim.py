@@ -661,6 +661,7 @@ def simulated_annealing_team_search(roster, gear_pool, team_size=20,
     Returns:
     - List of (damage, team) tuples sorted by damage
     - Best assignment dict from stage 1
+    - Best team from stage 1 (matches best_assignment)
     """
     print(f"  Simulated annealing (temp={initial_temp}->{min_temp}, rate={cooling_rate}, gear={gear_method})...")
     
@@ -785,7 +786,7 @@ def simulated_annealing_team_search(roster, gear_pool, team_size=20,
     
     # Sort results by damage and return
     results.sort(reverse=True, key=lambda x: x[0])
-    return results, best_assignment
+    return results, best_assignment, best_team
 
 GEAR_METHOD_PRESETS = {
     "fast": {  # For Stage 1 team evaluation
@@ -875,7 +876,7 @@ def optimize_team_with_beam_search(roster, gear_pool, team_size=20,
         print(f"  Using simulated annealing (temp: {sa_initial_temp}, cooling: {sa_cooling_rate}, min: {sa_min_temp})")
         
         # Use simulated annealing to find promising teams
-        quick_results, stage1_best_assignment = simulated_annealing_team_search(
+        quick_results, stage1_best_assignment, stage1_best_team = simulated_annealing_team_search(
             roster, gear_pool, team_size, 
             sa_initial_temp, sa_cooling_rate, sa_min_temp, 
             fixed_core=fixed_core,
@@ -928,7 +929,7 @@ def optimize_team_with_beam_search(roster, gear_pool, team_size=20,
     
     # Sort and keep the best team
     quick_results.sort(reverse=True, key=lambda x: x[0])
-    best_team = quick_results[0][1] if quick_results else []
+    best_team = stage1_best_team if use_simulated_annealing else (quick_results[0][1] if quick_results else [])
     
     print(f"\n  Stage 2: Beam search optimization for the best team...\n")
     
