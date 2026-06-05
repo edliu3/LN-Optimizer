@@ -1,5 +1,5 @@
 class Character:
-    def __init__(self, name, damage_type, atk, crit_dmg, ratio_per_hit, hits, buffs=None, temp_buffs=None, domain=None, base_flat_atk=0, base_atk_percent=0, crit_rate=0.1, base_hp=0, base_flat_hp=0, base_hp_percent=0):
+    def __init__(self, name, damage_type, atk, crit_dmg, ratio_per_hit, hits, buffs=None, temp_buffs=None, domain=None, base_flat_atk=0, base_atk_percent=0, crit_rate=0.1, base_hp=0, base_flat_hp=0, base_hp_percent=0, conditional_ratio_rules=None):
         self.name = name
         self.damage_type = damage_type
         self.base_atk = atk  # Store base stats separately
@@ -16,6 +16,7 @@ class Character:
         self.domain = domain if domain is not None else {}  # dict; domain buffs that don't count for buff_count
         self.ratio_per_hit = ratio_per_hit
         self.hits = hits
+        self.conditional_ratio_rules = conditional_ratio_rules  # dict for conditional ratios based on chain count
         self.equipped_gear = {
             "weapon": None,
             "head": None,
@@ -105,7 +106,8 @@ class Character:
             self.name, self.damage_type, self.base_atk, self.base_crit_dmg,
             self.ratio_per_hit, self.hits, list(self.buffs), dict(self.temp_buffs), dict(self.domain),
             self.base_flat_atk, self.base_atk_percent, self.crit_rate,
-            self.base_hp, self.base_flat_hp, self.base_hp_percent
+            self.base_hp, self.base_flat_hp, self.base_hp_percent,
+            self.conditional_ratio_rules
         )
         # Note: Gear objects are immutable, so we can safely reference them
         for slot, gear in self.equipped_gear.items():

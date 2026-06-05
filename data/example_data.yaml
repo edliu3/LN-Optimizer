@@ -1,18 +1,6 @@
 support_bonus: 4.0
 nh_nebris_ratio_multiplier: 0.2
 roster:
-- name: Mamonir
-  atk: 0
-  hp: 5388
-  is_hp_engraved: true
-  crit_dmg: 0.5
-  costumes:
-  - name: NoD
-    damage_type: Own Max HP
-    ratio_per_hit: 0.09
-    hits: 8
-    temp_buffs:
-      crit_dmg: 2
 - name: Refithea
   atk: 0
   is_atk_engraved: false
@@ -22,12 +10,12 @@ roster:
     damage_type: MATK
     buffs:
     - chain_count: 1
-    - property_dmg: 0.4
-    - energy_guard: 0.35
+    - property_dmg: 0.55
+    - energy_guard: 0.5
   - name: Glutton
     damage_type: MATK
     buffs:
-    - crit_dmg: 0.75
+    - crit_dmg: 0.85
     - barrier: 0.25
 - name: Granadair
   atk: 0
@@ -51,12 +39,12 @@ roster:
   - name: OM
     damage_type: ATK
     buffs:
-    - overall: 1.2
+    - overall: 1.3
     - heal: 0.15
   - name: DS
     damage_type: ATK
     buffs:
-    - ATK%: 0.8
+    - ATK%: 0.95
     - crit_rate: 0.5
 - name: Elpis
   atk: 0
@@ -111,9 +99,9 @@ roster:
     - MATK%: 0.65
     - Heal: 0.75
 - name: Lathel
-  atk: 0
+  atk: 667
   is_atk_engraved: true
-  crit_dmg: 0.5
+  crit_dmg: 0.581
   costumes:
   - name: H
     damage_type: ATK
@@ -127,7 +115,7 @@ roster:
     temp_buffs:
       ATK%: 0.5
 - name: Eclipse
-  atk: 572
+  atk: 611
   is_atk_engraved: false
   crit_dmg: 0.642
   costumes:
@@ -140,7 +128,7 @@ roster:
     ratio_per_hit: 3
     hits: 2
 - name: Levia
-  atk: 639
+  atk: 713
   is_atk_engraved: false
   crit_dmg: 0.75
   costumes:
@@ -149,7 +137,7 @@ roster:
     ratio_per_hit: 0.8
     hits: 4
 - name: Dalvi
-  atk: 800
+  atk: 851
   is_atk_engraved: true
   crit_dmg: 1.034
   costumes:
@@ -158,7 +146,7 @@ roster:
     ratio_per_hit: 0.85
     hits: 4
 - name: Olstein
-  atk: 298
+  atk: 319
   is_atk_engraved: false
   crit_dmg: 0.5
   costumes:
@@ -167,7 +155,7 @@ roster:
     ratio_per_hit: 0.25
     hits: 7
 - name: Liatris
-  atk: 891
+  atk: 940
   is_atk_engraved: true
   crit_dmg: 0.75
   costumes:
@@ -180,7 +168,7 @@ roster:
     ratio_per_hit: 0.3
     hits: 5
 - name: Wilhelmina
-  atk: 617
+  atk: 699
   is_atk_engraved: false
   crit_dmg: 1.027
   costumes:
@@ -199,7 +187,7 @@ roster:
     ratio_per_hit: 1.1
     hits: 6
 - name: Celia
-  atk: 636
+  atk: 680
   is_atk_engraved: false
   crit_dmg: 0.5
   costumes:
@@ -212,7 +200,7 @@ roster:
     ratio_per_hit: 0.18
     hits: 7
 - name: Zenith
-  atk: 317
+  atk: 340
   is_atk_engraved: false
   crit_dmg: 0.5
   costumes:
@@ -225,7 +213,7 @@ roster:
     ratio_per_hit: 0.5
     hits: 6
 - name: Luvencia
-  atk: 642
+  atk: 687
   is_atk_engraved: true
   crit_dmg: 1
   costumes:
@@ -234,7 +222,7 @@ roster:
     ratio_per_hit: 0.8
     hits: 8
 - name: Rou
-  atk: 632
+  atk: 677
   is_atk_engraved: true
   crit_dmg: 1.217
   costumes:
@@ -248,8 +236,13 @@ roster:
     hits: 1
     temp_buffs:
       crit_rate: 0.5
+  - name: RRH
+    damage_type: ATK
+    buffs:
+    - crit_rate: 0.3
+    - crit_dmg: 1.5
 - name: Nebris
-  atk: 1004
+  atk: 1053
   is_atk_engraved: true
   crit_dmg: 0.831
   costumes:
@@ -258,7 +251,7 @@ roster:
     ratio_per_hit: 0.4
     hits: 3
 - name: Olivier
-  atk: 378
+  atk: 551
   is_atk_engraved: false
   crit_dmg: 1
   costumes:
@@ -266,6 +259,141 @@ roster:
     damage_type: MATK
     ratio_per_hit: 0.5
     hits: 6
+    domain:
+      MATK%: 0.6
+- name: Mamonir
+  atk: 0
+  hp: 5388
+  is_hp_engraved: true
+  crit_dmg: 0.5
+  costumes:
+  - name: NoD
+    damage_type: Own Max HP
+    ratio_per_hit: 0.09
+    hits: 8
+    temp_buffs:
+      crit_dmg: 2
+- name: Darian
+  atk: 771
+  crit_dmg: 1.027
+  costumes:
+  - name: PD
+    damage_type: ATK
+    ratio_per_hit: 7.75
+    hits: 1
+- name: Ventana
+  atk: 881
+  crit_dmg: 0.581
+  costumes:
+  - name: CI
+    damage_type: ATK
+    ratio_per_hit: 4
+    hits: 1
+    temp_buffs:
+      ATK%: 0.5
+- name: Eleaneer
+  atk: 824
+  is_atk_engraved: true
+  crit_dmg: 0.608
+  costumes:
+  - name: SB
+    damage_type: ATK
+    domain:
+      ATK%: 0.2
+      MATK%: 0.2
+- name: Hikage
+  atk: 628
+  is_atk_engraved: false
+  crit_dmg: 1
+  costumes:
+  - name: KR
+    damage_type: ATK
+    ratio_per_hit: 0.4
+    hits: 12
+- name: Nekyndalia
+  atk: 407
+  hp: 1323
+  is_atk_engraved: true
+  crit_dmg: 0.75
+  costumes:
+  - name: Deadeye
+    damage_type: MATK
+    ratio_per_hit: 0.45
+    hits: 10
+- name: Scheherazade
+  atk: 0
+  is_atk_engraved: false
+  crit_dmg: 0.5
+  costumes:
+  - name: PP
+    damage_type: MATK
+    ratio_per_hit: 0.46
+    hits: 5
+    conditional_ratio_rules:
+      threshold: 15
+      high_ratio: 1.80
+# - name: Gray
+#   atk: 61
+#   crit_dmg: 0.5
+#   costumes:
+#   - name: B-Rank
+#     damage_type: ATK
+#     ratio_per_hit: 0.35
+#     hits: 5
+# - name: Rafina
+#   atk: 309
+#   crit_dmg: 0.5
+#   costumes:
+#   - name: CodeNameA
+#     damage_type: ATK
+#     ratio_per_hit: 0.4
+#     hits: 5
+# - name: Sylvia
+#   atk: 60
+#   crit_dmg: 0.5
+#   costumes:
+#   - name: BA
+#     damage_type: ATK
+#     ratio_per_hit: 4
+#     hits: 1
+# - name: Rubia
+#   atk: 60
+#   is_atk_engraved: false
+#   crit_dmg: 0.5
+#   costumes:
+#   - name: MB
+#     damage_type: ATK
+#     ratio_per_hit: 1.5
+#     hits: 1
+# - name: Yuri
+#   atk: 61
+#   is_atk_engraved: false
+#   crit_dmg: 0.5
+#   costumes:
+#   - name: CI
+#     damage_type: ATK
+#     ratio_per_hit: 4.95
+#     hits: 1
+#     temp_buffs:
+#       crit_dmg: 1.5
+# - name: Angelica
+#   atk: 0
+#   is_atk_engraved: false
+#   crit_dmg: 1
+#   costumes:
+#   - name: Pool
+#     damage_type: Enemy Max HP
+#     ratio_per_hit: 0.15
+#     hits: 3
+# - name: Palette
+#   atk: 122
+#   is_atk_engraved: false
+#   crit_dmg: 0.5
+#   costumes:
+#   - name: SD
+#     damage_type: MATK
+#     ratio_per_hit: 6.5
+#     hits: 1
 gear_pool:
 - name: Wilhelmina SR18
   slot: weapon
@@ -275,14 +403,74 @@ gear_pool:
   exclusive_for: Wilhelmina
 - name: Nebris UR21
   slot: weapon
-  flat_atk: 12
-  atk_percent: 2.0372
+  flat_atk: 116
+  atk_percent: 1.3336
   exclusive_for: Nebris
 - name: Blade UR16
   slot: weapon
   flat_atk: 92
   atk_percent: 1.0696
   exclusive_for: Blade
+- name: Palette UR18
+  slot: weapon
+  matk_percent: 1.1032
+  crit_dmg: 0.18
+  crit_rate: 0.2177
+  exclusive_for: Palette
+- name: Eleaneer UR20
+  slot: weapon
+  flat_atk: 204
+  atk_percent: 0.45
+  crit_dmg: 0.54
+  exclusive_for: Eleaneer
+- name: Hikage UR20
+  slot: weapon
+  atk_percent: 0.6532
+  crit_dmg: 1.08
+  exclusive_for: Hikage
+- preset: PJ
+  rank: 4
+  refine: 18
+  primary_stats:
+  - flat_atk
+  - flat_atk
+  secondary_stats:
+  - flat_atk
+  - crit_rate
+- preset: HoT
+  rank: 4
+  refine: 20
+  secondary_stats:
+  - crit_dmg
+  - flat_atk
+- preset: EDB
+  rank: 4
+  refine: 19
+  secondary_stats:
+  - atk_percent
+  - atk_percent
+  - atk_percent
+- preset: TGF
+  rank: 4
+  refine: 20
+  secondary_stats:
+  - crit_dmg
+  - matk_percent
+  - matk_percent
+- preset: EoD
+  rank: 4
+  refine: 19
+  secondary_stats:
+  - matk_percent
+  - matk_percent
+  - hp_percent
+- preset: DFB
+  rank: 4
+  refine: 19
+  secondary_stats:
+  - matk_percent
+  - flat_hp
+  - flat_hp
 - name: FH claw
   slot: weapon
   rarity: UR
@@ -294,56 +482,42 @@ gear_pool:
   secondary_stats:
   - crit_dmg
   - matk_percent
-- preset: PJ
-  rank: 4
+- preset: DFB
+  rank: 3
   refine: 15
-  primary_stats:
-  - flat_atk
-  - flat_atk
   secondary_stats:
-  - flat_atk
+  - crit_dmg
+  - hp_percent
+  - matk_percent
 - preset: DFB
   rank: 3
   refine: 12
-  primary_stats:
-  - flat_matk
-  - flat_matk
   secondary_stats:
   - crit_dmg
+  - flat_hp
 - preset: EoD
   rank: 3
   refine: 15
 - preset: TGF
-  rank: 4
-  refine: 20
-  secondary_stats:
-  - crit_dmg
-  - matk_percent
-  - matk_percent
-- preset: TGF
   rank: 3
   refine: 12
   secondary_stats:
   - flat_matk
   - crit_dmg
-- preset: HoT
-  rank: 4
-  refine: 18
-  secondary_stats:
-  - crit_dmg
+  - flat_hp
 - preset: HoT
   rank: 3
   refine: 10
   secondary_stats:
   - flat_atk
   - crit_dmg
-- preset: EDB
-  rank: 4
-  refine: 19
+  - flat_hp
+- preset: HoT
+  rank: 3
+  refine: 10
   secondary_stats:
-  - flat_atk
-  - atk_percent
-  - atk_percent
+  - crit_dmg
+  - flat_hp
 - preset: EDB
   rank: 3
   refine: 17
@@ -364,12 +538,42 @@ gear_pool:
   refine: 18
   secondary_stats:
   - crit_dmg
-- preset: FG
-  rank: 3
-  refine: 14
+  - flat_matk
+  - flat_matk
+- preset: IA
+  rank: 4
+  refine: 19
+  secondary_stats:
+  - atk_percent
+- preset: IA
+  rank: 4
+  refine: 18
   secondary_stats:
   - crit_dmg
-  - matk_percent
+  - crit_dmg
+- preset: IA
+  rank: 4
+  refine: 15
+  secondary_stats:
+  - atk_percent
+  - atk_percent
+  - atk_percent
+# - preset: FG
+#   rank: 3
+#   refine: 18
+#   secondary_stats:
+#   - hp_percent
+#   - flat_hp
+- name: FH armor
+  slot: armor
+  rarity: UR
+  rank: 3
+  refine: 24
+  primary_stats:
+  - hp_percent
+  secondary_stats:
+  - hp_percent
+  - hp_percent
 - preset: FG
   rank: 3
   refine: 14
@@ -387,29 +591,39 @@ gear_pool:
   secondary_stats:
   - crit_dmg
   - crit_dmg
-- preset: IA
-  rank: 4
-  refine: 19
-  secondary_stats:
-  - atk_percent
-- preset: IA
-  rank: 4
-  refine: 16
-  secondary_stats:
   - crit_dmg
-  - crit_dmg
-- preset: IA
-  rank: 4
-  refine: 14
-  secondary_stats:
-  - atk_percent
-  - flat_atk
-  - atk_percent
+- preset: SoSG
+  rank: 3
+  refine: 9
 - preset: IA
   rank: 3
   refine: 18
   secondary_stats:
   - atk_percent
+  - flat_hp
+- preset: IA
+  rank: 3
+  refine: 13
+  secondary_stats:
+  - crit_dmg
+- preset: IA
+  rank: 3
+  refine: 12
+  secondary_stats:
+  - flat_atk
+  - crit_rate
+  - crit_rate
+- preset: HR
+  rank: 3
+  refine: 11
+  secondary_stats:
+  - hp_percent
+- preset: DS
+  rank: 3
+  refine: 11
+  secondary_stats:
+  - matk_percent
+  - hp_percent
 - preset: IA
   rank: 2
   refine: 17
@@ -433,14 +647,6 @@ gear_pool:
   secondary_stats:
   - flat_atk
 # ---------- HELMETS ----------
-- name: FH crown
-  slot: head
-  rarity: UR
-  rank: 3
-  refine: 24
-  secondary_stats:
-  - atk_percent
-  - crit_dmg
 - preset: CoG
   rank: 4
   refine: 19
@@ -450,7 +656,7 @@ gear_pool:
   - crit_dmg
 - preset: CoG
   rank: 4
-  refine: 12
+  refine: 13
   secondary_stats:
   - matk_percent
   - matk_percent
@@ -460,33 +666,13 @@ gear_pool:
   refine: 18
   secondary_stats:
   - crit_dmg
+  - hp_percent
 - preset: RW
   rank: 4
   refine: 18
   secondary_stats:
   - flat_matk
-- preset: RW
-  rank: 3
-  refine: 15
-  secondary_stats:
-  - matk_percent
-- preset: RW
-  rank: 3
-  refine: 11
-  secondary_stats:
-  - crit_dmg
-- preset: RW
-  rank: 2
-  refine: 13
-  secondary_stats:
-  - matk_percent
-  - matk_percent
-- preset: RW
-  rank: 2
-  refine: 9
-  secondary_stats:
-  - matk_percent
-  - crit_dmg
+  - flat_hp
 - preset: HoC
   rank: 4
   refine: 18
@@ -496,11 +682,65 @@ gear_pool:
   - crit_dmg
 - preset: HoC
   rank: 4
+  refine: 18
+  secondary_stats:
+  - crit_dmg
+  - atk_percent
+- preset: HoC
+  rank: 4
   refine: 17
   secondary_stats:
   - crit_dmg
   - crit_dmg
   - crit_dmg
+- preset: HoD
+  rank: 4
+  refine: 9
+  secondary_stats:
+  - crit_rate
+  - crit_rate
+  - flat_atk
+- name: FH crown
+  slot: head
+  rarity: UR
+  rank: 3
+  refine: 24
+  primary_stats:
+  - flat_hp
+  secondary_stats:
+  - atk_percent
+  - crit_dmg
+  - flat_hp
+- preset: SB
+  rank: 3
+  refine: 10
+  secondary_stats:
+  - matk_percent
+  - matk_percent
+  - matk_percent
+- preset: RW
+  rank: 3
+  refine: 15
+  secondary_stats:
+  - matk_percent
+  - flat_hp
+- preset: RW
+  rank: 3
+  refine: 11
+  secondary_stats:
+  - crit_dmg
+- preset: RW
+  rank: 3
+  refine: 11
+  secondary_stats:
+  - matk_percent
+  - matk_percent
+- preset: UG
+  rank: 3
+  refine: 11
+  secondary_stats:
+  - hp_percent
+  - flat_atk
 - preset: HoC
   rank: 2
   refine: 18
@@ -518,6 +758,45 @@ gear_pool:
   secondary_stats:
   - atk_percent
 # ---------- ACCESSORIES ----------
+- name: Eclipse UR18
+  slot: accessory
+  crit_dmg: 2.6128
+  matk_percent: 0.63
+  exclusive_for: Eclipse
+- preset: CG
+  rank: 4
+  refine: 18
+  secondary_stats:
+  - matk_percent
+  - hp_percent
+  - flat_matk
+- preset: VT
+  rank: 4
+  refine: 20
+  secondary_stats:
+  - atk_percent
+  - atk_percent
+  - crit_dmg
+- preset: VT
+  rank: 4
+  refine: 20
+  secondary_stats:
+  - matk_percent
+  - matk_percent
+  - crit_rate
+- preset: VT
+  rank: 4
+  refine: 19
+  secondary_stats:
+  - flat_matk
+  - atk_percent
+  - atk_percent
+- preset: WoB
+  rank: 4
+  refine: 18
+  secondary_stats:
+  - flat_hp
+  - matk_percent
 - name: FH ring
   slot: accessory
   rarity: UR
@@ -530,28 +809,6 @@ gear_pool:
   - matk_percent
   - flat_matk
   - flat_atk
-- preset: CG
-  rank: 4
-  refine: 18
-  primary_stats:
-  - crit_dmg
-  - hp_percent
-  secondary_stats:
-  - matk_percent
-  - flat_matk
-- preset: VT
-  rank: 4
-  refine: 19
-  secondary_stats:
-  - matk_percent
-  - matk_percent
-- preset: VT
-  rank: 4
-  refine: 20
-  secondary_stats:
-  - atk_percent
-  - atk_percent
-  - crit_dmg
 - preset: VT
   rank: 3
   refine: 17
@@ -568,12 +825,20 @@ gear_pool:
   rank: 3
   refine: 15
   secondary_stats:
+  - flat_matk
+  - matk_percent
+- preset: VT
+  rank: 3
+  refine: 15
+  secondary_stats:
   - atk_percent
   - atk_percent
   - matk_percent
 - preset: VT
   rank: 3
   refine: 12
+  secondary_stats:
+  - flat_hp
 - preset: VT
   rank: 3
   refine: 12
@@ -594,6 +859,9 @@ gear_pool:
 - preset: VT
   rank: 3
   refine: 10
+  secondary_stats:
+  - flat_hp
+  - hp_percent
 - preset: VT
   rank: 3
   refine: 9
@@ -612,54 +880,51 @@ gear_pool:
   secondary_stats:
   - flat_matk
   - matk_percent
+- preset: PoH
+  rank: 3
+  refine: 9
+  secondary_stats:
+  - flat_matk
+  - flat_matk
+  - matk_percent
+- preset: PoA
+  rank: 3
+  refine: 12
+  secondary_stats:
+  - crit_dmg
+  - flat_atk
+  - flat_hp
 # ---------- GLOVES ----------
 - preset: DSP
   rank: 4
   refine: 19
-- preset: DSP
-  rank: 3
-  refine: 12
   secondary_stats:
-  - flat_matk
+  - flat_hp
   - matk_percent
-- preset: DSP
-  rank: 3
-  refine: 12
-- preset: SoT
-  rank: 4
-  refine: 19
-  secondary_stats:
-  - crit_dmg
-  - matk_percent
-  - matk_percent
-- preset: SoT
-  rank: 3
-  refine: 15
-  secondary_stats:
-  - crit_dmg
-  - crit_dmg
-- preset: SoT
-  rank: 3
-  refine: 15
-  secondary_stats:
-  - flat_matk
-- preset: SoT
-  rank: 3
-  refine: 11
-  secondary_stats:
-  - crit_dmg
   - crit_dmg
 - preset: RoF
   rank: 4
   refine: 12
-  primary_stats:
-  - crit_rate
-  - matk_percent
   secondary_stats:
   - crit_dmg
-- preset: PA
+  - crit_rate
+- preset: SoT
   rank: 4
   refine: 19
+  secondary_stats:
+  - crit_dmg
+  - matk_percent
+  - matk_percent
+- preset: PA
+  rank: 4
+  refine: 22
+  secondary_stats:
+  - atk_percent
+  - crit_dmg
+  - atk_percent
+- preset: PA
+  rank: 4
+  refine: 21
   secondary_stats:
   - atk_percent
   - crit_dmg
@@ -670,29 +935,75 @@ gear_pool:
   secondary_stats:
   - flat_atk
   - crit_dmg
-- preset: PA
-  rank: 3
-  refine: 10
-  secondary_stats:
-  - atk_percent
-  - atk_percent
+  - hp_percent
 - preset: GKSA
   rank: 4
   refine: 20
   secondary_stats:
   - atk_percent
   - atk_percent
+- name: FH glove
+  slot: glove
+  rank: 3
+  refine: 24
+  primary_stats:
+  - matk_percent
+  - flat_matk
+  secondary_stats:
+  - hp_percent
+  - flat_hp
+- preset: DSP
+  rank: 3
+  refine: 12
+  secondary_stats:
+  - flat_matk
+  - matk_percent
+  - hp_percent
+- preset: DSP
+  rank: 3
+  refine: 12
+  secondary_stats:
+  - flat_matk
+  - crit_rate
+- preset: SoT
+  rank: 3
+  refine: 15
+  secondary_stats:
+  - crit_dmg
+  - crit_dmg
+  - crit_rate
+- preset: SoT
+  rank: 3
+  refine: 15
+  secondary_stats:
+  - flat_matk
+- preset: SoT
+  rank: 3
+  refine: 11
+  secondary_stats:
+  - crit_dmg
+  - crit_dmg
+  - hp_percent
+- preset: PA
+  rank: 3
+  refine: 10
+  secondary_stats:
+  - atk_percent
+  - atk_percent
+  - crit_rate
 - preset: GKSA
   rank: 3
   refine: 16
   secondary_stats:
   - atk_percent
   - atk_percent
+  - crit_rate
 - preset: GKSA
   rank: 3
   refine: 14
   secondary_stats:
   - crit_dmg
+  - crit_rate
 - preset: GKSA
   rank: 3
   refine: 12
@@ -703,20 +1014,21 @@ gear_pool:
   refine: 12
   secondary_stats:
   - atk_percent
+  - crit_rate
 - preset: GKSA
   rank: 3
   refine: 11
+  secondary_stats:
+  - flat_hp
 - preset: GKSA
   rank: 3
   refine: 9
   secondary_stats:
   - atk_percent
   - crit_dmg
-- preset: GKSA
-  rank: 3
-  refine: 7
-- preset: R #Rebellion
+- preset: R # Rebellion
   rank: 3
   refine: 14
   secondary_stats:
   - crit_dmg
+  - flat_hp

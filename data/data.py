@@ -110,6 +110,7 @@ def _load_data(yaml_path: str):
                 "hits": costume.get("hits", 0),
                 "temp_buffs": costume.get("temp_buffs", {}),
                 "domain": entry.get("domain", {}),
+                "conditional_ratio_rules": costume.get("conditional_ratio_rules", None),
             }
             
             # Add costume buffs if present
@@ -140,6 +141,7 @@ def _load_data(yaml_path: str):
                 base_hp       = base_stats['base_hp'] if base_name in char_stats else entry.get("hp", 0),
                 base_flat_hp = base_flat_hp,
                 base_hp_percent = base_hp_percent,
+                conditional_ratio_rules = costume_data["conditional_ratio_rules"],
             )
             roster_out.append(costume_char)
 

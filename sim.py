@@ -157,7 +157,26 @@ def calculate_actual_damage(sequence, current_team_buffs, support_bonus=None):
         char_hits = hits[i]
         if char_hits > 0:
             chain_bonuses = _compute_chain_bonuses(current_chain, char_hits, chain_mults[i])
-            char_damage = (single_hits[i] * chain_bonuses).sum()
+            
+            # Handle conditional ratio based on chain count (e.g., Pool Party Scheherazade)
+            if char.conditional_ratio_rules:
+                threshold = char.conditional_ratio_rules.get("threshold", 15)
+                low_ratio = char.conditional_ratio_rules.get("low_ratio", char.ratio_per_hit)
+                high_ratio = char.conditional_ratio_rules.get("high_ratio", char.ratio_per_hit)
+                
+                # Calculate ratio for each hit based on current chain count
+                hit_chains = current_chain + np.arange(char_hits) * chain_mults[i]
+                hit_ratios = np.where(hit_chains < threshold, low_ratio, high_ratio)
+                
+                # Recalculate single hit damage with conditional ratios
+                # single_hits[i] was calculated with the default ratio, so we need to adjust
+                base_single_hit = single_hits[i] / char.ratio_per_hit
+                conditional_single_hits = base_single_hit * hit_ratios
+                
+                char_damage = (conditional_single_hits * chain_bonuses).sum()
+            else:
+                char_damage = (single_hits[i] * chain_bonuses).sum()
+            
             total_damage += char_damage
             current_chain += char_hits * chain_mults[i]
     
@@ -193,6 +212,7 @@ def evaluate_team_with_gear(team, gear_assignments, support_bonus=None):
             base_hp=char.base_hp,
             base_flat_hp=char.base_flat_hp,
             base_hp_percent=char.base_hp_percent,
+            conditional_ratio_rules=char.conditional_ratio_rules,
         )
         
         # Equip gear

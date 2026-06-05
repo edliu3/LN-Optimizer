@@ -59,6 +59,7 @@ Each character can have multiple costumes. Each costume in the `costumes` array 
 | `buffs` | list | optional | Team-wide buffs this costume provides (see below) |
 | `temp_buffs` | mapping | optional | Self-only buffs (see below) |
 | `domain` | mapping | optional | Team-wide buffs (not counted for buff_count) |
+| `conditional_ratio_rules` | mapping | optional | Conditional damage ratio based on chain count (see below) |
 
 These values are for a 'naked' character without gear, but they are hard to standardize as they depend on which costume is bonded, total collection bonus %, and potential nodes. Remember to use the gear presets to easily save your current loadouts before data entry.
 
@@ -95,6 +96,44 @@ buffs:
 ### `domain` — Team-Wide Buffs (Excluded from buff_count)
 
 These provide team-wide buffs like regular `buffs`, but **do not count toward NH Nebris's buff_count calculation**. Domain buffs affect the character's own damage and any characters that attack after them in the rotation.
+
+### `conditional_ratio_rules` — Chain-Conditional Damage Ratios
+
+Some costumes have damage ratios that change based on the current chain count. This field defines the rules for such conditional ratios.
+
+```yaml
+conditional_ratio_rules:
+  threshold: 15      # Chain count threshold
+  low_ratio: 0.46    # Ratio when chain < threshold (optional, defaults to ratio_per_hit)
+  high_ratio: 1.80   # Ratio when chain >= threshold
+```
+
+**How it works:**
+- For each hit, the current chain count is checked against the threshold
+- If chain < threshold: uses `low_ratio` (or `ratio_per_hit` if `low_ratio` is not specified)
+- If chain >= threshold: uses `high_ratio`
+- The ratio is evaluated per-hit, so a single character's skill can use different ratios for different hits if the chain count crosses the threshold during their attack
+
+**Example: Pool Party Scheherazade**
+```yaml
+- name: Scheherazade
+  atk: 0
+  is_atk_engraved: false
+  crit_dmg: 0.5
+  costumes:
+  - name: PP
+    damage_type: MATK
+    ratio_per_hit: 0.46
+    hits: 5
+    conditional_ratio_rules:
+      threshold: 15
+      high_ratio: 1.80
+```
+
+In this example:
+- If PP Scheherazade attacks when chain count is 13, her first 2 hits (chain 13, 14) use 0.46 ratio, and her last 3 hits (chain 15, 16, 17) use 1.80 ratio
+- If she attacks when chain count is already 20, all 5 hits use 1.80 ratio
+- If she attacks when chain count is 0, all 5 hits use 0.46 ratio (default `ratio_per_hit`)
 
 ### `temp_buffs` — Self-Only Buffs
 
